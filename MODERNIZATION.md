@@ -3,8 +3,9 @@
 Working notes for the graphics modernization of this SDL2 port, from a read-only
 inspection pass plus build and runtime testing on Ubuntu.
 
-Line references throughout are current as of `1ad3e2d` and will drift as the
-code changes; treat them as starting points, and search for the quoted code
+Line references are navigation hints, not precise citations. The dead-code and
+formatting passes moved every line in the codebase, and although the numbers
+below were remapped, some are off by a few lines. Search for the quoted code
 rather than trusting the number.
 
 The long-term goal is to improve the graphics substantially while preserving the
@@ -14,6 +15,18 @@ original gameplay, jump physics, controls and hill geometry exactly.
 
 | | |
 |---|---|
+| `129de57` | inspection baseline |
+| `6411942` | fix `EInvalidOp` crash on startup with hardware rendering |
+| `1ad3e2d` | untrack `MOREHILL.SKI` and user-created hills/cups/replays |
+| `c382e54` | this document |
+| `0f96125` | untrack player state, seed it from `defaults/`, add `build.sh` |
+| `877109c` | remove commented-out dead code (1038 lines) |
+| `4f341d1` | add `tools/verify-codegen.sh`, drop the one compound assignment |
+| `5b9c1d4` | reformat the sources with `format.sh` |
+
+Nothing in the rendering path has been changed yet.
+
+---|---|
 | `129de57` | inspection baseline |
 | `6411942` | fix `EInvalidOp` crash on startup with hardware rendering |
 | `1ad3e2d` | untrack `MOREHILL.SKI` and user-created hills/cups/replays |
@@ -43,7 +56,7 @@ The headers clone lives in the working tree and is gitignored. Verified against
 `fpc 3.0.4` and `SDL2 2.0.10`: builds in ~1 s, 26 713 lines, 7 warnings and
 2 notes, all pre-existing and benign (uninitialised locals in `SJ3REPL`/`SJ3.PAS`,
 tautological `byte < 0` comparisons in `SJ3PCX`, an unset function result at
-`SJ3UNIT.PAS:1419`).
+`SJ3UNIT.PAS:1293`).
 
 Notes:
 
@@ -56,6 +69,38 @@ Notes:
   artefact on Linux and does not affect the binary.
 - The binary must run with the asset directory as its CWD — every filename in
   the code is unqualified and relative.
+
+### Tooling
+
+| | |
+|---|---|
+| `./build.sh` | clone headers if missing, seed save files from `defaults/`, compile |
+| `./format.sh` | reformat all sources with ptop plus a cleanup pass |
+| `./tools/verify-codegen.sh` | print a hash of the emitted assembly |
+| `./tools/lower-keywords.py` | lowercase reserved words, skipping strings and comments |
+
+`verify-codegen.sh` is the safety net for mechanical work. It compiles with
+`fpc -Mtp -a` and hashes the 14 emitted `.s` files; any change that is supposed
+to be behaviour-preserving must leave that hash alone. The current value is
+
+    368f333b9ec1a1d918858397d49a25377d451c52e0523f5396f4fe8afdb56a75
+
+and it has held across the dead-code removal and the reformatting, so the
+compiled program is bit-for-bit what it was at `6411942`.
+
+It is not a formality. During the dead-code pass it caught two adjacent comment
+blocks being spliced together, which swallowed the live line between them:
+
+    if (cjumper) then writefont(x-Maki.X,y-Maki.Y-20,'C');
+
+That still compiled. Only the hash noticed.
+
+**ptop caveat.** ptop cannot parse FPC's compound assignment operators - it
+rewrites `+=` as `+ =`, which fails to compile - so the sources deliberately
+avoid them. There was exactly one, in `SDLPort.TimerCallback`. Two cosmetic
+limitations remain: one-line `begin ... end;` blocks get reflowed onto separate
+lines, and where the original wrote `end else foo;` on a single line the `else`
+ends up indented to the enclosing `if` rather than its own.
 
 ### The repo directory is also the save directory
 
@@ -140,17 +185,17 @@ fields.
 
 | Where | What |
 |---|---|
-| `SJ3.PAS:5865` | **MAIN.** Unit `Init`s in fixed order (lang, list, unit, wind, info, snow), `randomize`, date/time, version string `3.13-SP5`. |
+| `SJ3.PAS:5728` | **MAIN.** Unit `Init`s in fixed order (lang, list, unit, wind, info, snow), `randomize`, date/time, version string `3.13-SP5`. |
 | `SDLPort.Init` | SDL video + timer, 640x400 resizable window, renderer, three graphics objects, the 1 ms pacing timer. Close callback registered so the window X button still saves. |
-| `SJ3.PAS:5725` `alku` | **Load everything.** `ANIM.SKI` to sprite atlas; hiscores; config; profiles; name set; language; hill scan; `Maki.Alusta` allocates `Graffa` (1 049 600 B) and `Video` (64 000 B). Progress goes to the terminal, not the window. |
-| `SJ3.PAS:5648` `MainMenu` | First run only: welcome/language screen, then `INTRO.SJR` as attract mode. Then the menu loop — `drawfullmain` paints `MAIN.PCX`, `MakeMenu` blocks on input. |
-| `SJ3.PAS:5617` `JumpMenu` | Six entries: World Cup, Custom Cup, Four Hills, Team Cup, King of the Hill, Training. Each sets the mode flags (`wcup`, `jcup`, `koth`, `treeni`, `cupstyle`) that `hyppy` later branches on. |
-| `SJ3.PAS:4575` `training` | Shortest path to a jump: `selecthill` to `jumpalku` (`LoadInfo` fills `ActHill`, resets scores) to `Tuuli.Alusta` to `hyppy(1, NumPl+1, 0)`, looping until Esc. |
-| `SJ3.PAS:763` `hyppy` | **The jump.** First call per hill (`eka`) rolls snowfall and calls `LoadHill`, which shows `LOAD.PCX`, decodes `FRONTn.PCX` and `BACKn.PCX` into `Graffa`, derives the profile via `LaskeLinjat`, and verifies a checksum against `ActHill.profile`. |
+| `SJ3.PAS:5608` `alku` | **Load everything.** `ANIM.SKI` to sprite atlas; hiscores; config; profiles; name set; language; hill scan; `Maki.Alusta` allocates `Graffa` (1 049 600 B) and `Video` (64 000 B). Progress goes to the terminal, not the window. |
+| `SJ3.PAS:5545` `MainMenu` | First run only: welcome/language screen, then `INTRO.SJR` as attract mode. Then the menu loop — `drawfullmain` paints `MAIN.PCX`, `MakeMenu` blocks on input. |
+| `SJ3.PAS:5501` `JumpMenu` | Six entries: World Cup, Custom Cup, Four Hills, Team Cup, King of the Hill, Training. Each sets the mode flags (`wcup`, `jcup`, `koth`, `treeni`, `cupstyle`) that `hyppy` later branches on. |
+| `SJ3.PAS:4477` `training` | Shortest path to a jump: `selecthill` to `jumpalku` (`LoadInfo` fills `ActHill`, resets scores) to `Tuuli.Alusta` to `hyppy(1, NumPl+1, 0)`, looping until Esc. |
+| `SJ3.PAS:768` `hyppy` | **The jump.** First call per hill (`eka`) rolls snowfall and calls `LoadHill`, which shows `LOAD.PCX`, decodes `FRONTn.PCX` and `BACKn.PCX` into `Graffa`, derives the profile via `LaskeLinjat`, and verifies a checksum against `ActHill.profile`. |
 | loop 1 | **Info screen.** Cycles hill record / top-5 / World Cup standings until a key. Setup menu reachable here. |
 | loop 2 | **On the bar.** Wind ticks, jumper idles, traffic light blinks; AI leaves on a random roll, player on the `K[2]` key. Bails out after 700 frames. |
 | loop 3 | **Inrun, takeoff, flight, landing.** One iteration = one displayed frame = 10 ms of simulated time. Ends when `Height = 0`. Every frame appends 5 bytes to the replay buffer. |
-| `SJ3.PAS:2160+` | **Scoring.** Distance from `matka`/profile geometry, five judge marks, crash roll, injury, hill-record check, profile stats, then results screens and the optional replay save. |
+| `SJ3.PAS:2106+` | **Scoring.** Distance from `matka`/profile geometry, five judge marks, crash roll, injury, hill-record check, profile stats, then results screens and the optional replay save. |
 
 ---
 
@@ -172,7 +217,7 @@ directly, always as `Video[y*320 + x]`. Each byte is a palette index 0-255.
 
 ### 5.2 Hill composition
 
-`MAKI.PAS:80` `Tulosta` calls
+`MAKI.PAS:83` `Tulosta` calls
 `KopioiMaki(Y*XSize, Alue - (X shr 1) - (Y shr 1)*XSize)`.
 
 For each of 200 rows and 320 columns it copies one byte from `Graffa`. Where the
@@ -183,20 +228,20 @@ hill row — it adds `delta`, which jumps into the backdrop stored at offset
 
 ### 5.3 Sprites, snow, text
 
-- `SJ3GRAPH.PAS:195` `Sprite` — width and height come from a 4-byte header
+- `SJ3GRAPH.PAS:182` `Sprite` — width and height come from a 4-byte header
   inside the sprite; index 0 is transparent; clipped only on the right
   (`X+xindex < 320`), never on the left or bottom.
-- `SJ3GRAPH.PAS:216` `DrawAnim` — applies the per-sprite hotspot from `AnimP`,
+- `SJ3GRAPH.PAS:204` `DrawAnim` — applies the per-sprite hotspot from `AnimP`,
   then rejects the whole sprite unless `0 <= x < 320` and `0 <= y < 200-ysize`.
   Sprites pop rather than clip at screen edges; that is original behaviour.
-- `SJ3GRAPH.PAS:247` `LoadAnim` — reads `ANIM.SKI`; after sprite 83 it
+- `SJ3GRAPH.PAS:235` `LoadAnim` — reads `ANIM.SKI`; after sprite 83 it
   synthesises 12 vertically mirrored ski sprites.
-- `LUMI.PAS:43` `Update` — 10.10 fixed-point flakes, guarded by the magic bound
+- `LUMI.PAS:38` `Update` — 10.10 fixed-point flakes, guarded by the magic bound
   `offset < 63679` and by the backdrop palette window 64-214, so snow falls
   behind the hill without any depth test.
-- `SJ3GRAPH.PAS:360` `DoFont` — text is sprites. Glyphs are atlas entries 1-60,
+- `SJ3GRAPH.PAS:342` `DoFont` — text is sprites. Glyphs are atlas entries 1-60,
   and `fontcolor` permanently rewrites those sprites' pixel bytes.
-- `SJ3GRAPH.PAS:468` `FillArea` — the tiled 19x13 pattern behind menu panels,
+- `SJ3GRAPH.PAS:447` `FillArea` — the tiled 19x13 pattern behind menu panels,
   keyed off palette indices 243-245.
 
 ### 5.4 Palette
@@ -216,7 +261,7 @@ that calls `AsetaPaletti`, exactly like a VGA DAC write.
 
 ### 5.5 Presentation
 
-`SJ3GRAPH.PAS:49` is the entire public presentation API:
+`SJ3GRAPH.PAS:43` is the entire public presentation API:
 
 ```pascal
 Procedure DrawScreen;
@@ -231,7 +276,7 @@ Called from roughly a hundred sites. `DrawHillScreen` is `Maki.Tulosta` +
 
 ### 5.6 `SDLPort.Render`
 
-`SDLPORT.PAS:239`. Four hops per frame:
+`SDLPORT.PAS:249`. Four hops per frame:
 
 1. `Move(buffer, originalSurface^.pixels^, Sizeof(buffer))` — a raw 64 000-byte
    memcpy into the 8-bit surface. `SizeOf` on an open-array parameter returns
@@ -249,7 +294,7 @@ All three graphics objects are created once in `Init` at 320x200: an 8-bit
 surface, a 32-bit surface, and a streaming RGBA8888 texture. Scaling happens
 entirely in the last `SDL_RenderCopy`, via `renderDestRect`.
 
-`SDLPORT.PAS:102` `GetRenderRect` letterboxes: it queries
+`SDLPORT.PAS:108` `GetRenderRect` letterboxes: it queries
 `SDL_GetRendererOutputSize` and fits a rect of ratio `aspect` — `1.6` by
 default, `4/3` after Alt+A — centred in the window. It is recomputed only when
 `windowResized` is set, which `KeyPressed` sets on `SDL_WINDOWEVENT_RESIZED`.
@@ -280,23 +325,23 @@ are not.
 
 | Location | Form | Note |
 |---|---|---|
-| `SDLPORT.PAS:28` | `xRes = 320` | The only named constant. Everything else is a literal. |
-| `SJ3GRAPH.PAS:209` | `Video[X+xindex+(Y+yindex)*320]` | Sprite blit. |
-| `SJ3GRAPH.PAS:336, 351` | `video[(y1*320)+x1]` | `PutPixel`, `GetPixel`. |
-| `SJ3GRAPH.PAS:494-505` | `(temp1*320)+temp2`, `mod 320`, `div 320` | `FillArea` derives tile phase from the linear offset — stride and layout are entangled. |
-| `SJ3GRAPH.PAS:543` | `video[xx + yy shl 8 + yy shl 6]` | **Disguised.** 256+64 = 320. A stride change that misses this silently corrupts every filled box. |
-| `MAKI.PAS:65` | `for x_index := 0 to (320 - 1)` | Hill composite width. |
-| `LUMI.PAS:59, 69, 70` | `(Y shr 10)*320`, `offset+320` | Snowflake plotting, including the 2x2 flake's second row. |
-| `LUMI.PAS:90` | `random(320) shl 10` | Spawn width. |
+| `SDLPORT.PAS:30` | `xRes = 320` | The only named constant. Everything else is a literal. |
+| `SJ3GRAPH.PAS:197` | `Video[X+xindex+(Y+yindex)*320]` | Sprite blit. |
+| `SJ3GRAPH.PAS:317, 333` | `video[(y1*320)+x1]` | `PutPixel`, `GetPixel`. |
+| `SJ3GRAPH.PAS:473-484` | `(temp1*320)+temp2`, `mod 320`, `div 320` | `FillArea` derives tile phase from the linear offset — stride and layout are entangled. |
+| `SJ3GRAPH.PAS:503` | `video[xx + yy shl 8 + yy shl 6]` | **Disguised.** 256+64 = 320. A stride change that misses this silently corrupts every filled box. |
+| `MAKI.PAS:66` | `for x_index := 0 to (320 - 1)` | Hill composite width. |
+| `LUMI.PAS:55, 66, 67` | `(Y shr 10)*320`, `offset+320` | Snowflake plotting, including the 2x2 flake's second row. |
+| `LUMI.PAS:91` | `random(320) shl 10` | Spawn width. |
 
 ### 6.2 `200` — the framebuffer height
 
-- `SDLPORT.PAS:29` — `yRes = 200`
-- `MAKI.PAS:60` — `for y_index := 0 to (200 - 1)`, hill composite height
-- `SJ3GRAPH.PAS:234` — `y < 200-ysize`, the sprite reject test
-- `SJ3GRAPH.PAS:333` — `y >= 0 and y < 200`, `PutPixel` clip
-- `LUMI.PAS:91` — `random(200) shl 10`, snow spawn height
-- `SJ3UNIT.PAS:682`, `SJ3INFO.PAS:2492` — `320*200` as the PCX pixel count for
+- `SDLPORT.PAS:31` — `yRes = 200`
+- `MAKI.PAS:61` — `for y_index := 0 to (200 - 1)`, hill composite height
+- `SJ3GRAPH.PAS:222` — `y < 200-ysize`, the sprite reject test
+- `SJ3GRAPH.PAS:313` — `y >= 0 and y < 200`, `PutPixel` clip
+- `LUMI.PAS:92` — `random(200) shl 10`, snow spawn height
+- `SJ3UNIT.PAS:583`, `SJ3INFO.PAS:2407` — `320*200` as the PCX pixel count for
   `LOAD.PCX` and `MAIN.PCX`
 
 Also note **319 and 199** as inclusive clip bounds: 18 occurrences in
@@ -306,14 +351,14 @@ coordinates, not stride — for milestone 1 they stay exactly as they are.
 
 ### 6.3 `64000` — the buffer size
 
-- `MAKI.PAS:210` — `setLength(Video, 64000)`, the only live one
-- Implicitly, `SizeOf(buffer)` in `SDLPORT.PAS:253` and `length(video)` in
+- `MAKI.PAS:181` — `setLength(Video, 64000)`, the only live one
+- Implicitly, `SizeOf(buffer)` in `SDLPORT.PAS:264` and `length(video)` in
   `WriteVideo`
-- `LUMI.PAS:60` — `offset < 63679`, **the magic number**. It is
+- `LUMI.PAS:56` — `offset < 63679`, **the magic number**. It is
   64000 - 320 - 1, the last offset at which a 2x2 flake can write
   `offset+320+1` without running off the end. It reads as arbitrary and will not
   survive a naive resize.
-- Dead references: `SJ3REPL.PAS:495, 535, 536, 675` and `SJ3GRAPH.PAS:90` are
+- Dead references: `SJ3REPL.PAS:504, 533, 534, 674` and `SJ3GRAPH.PAS:81` are
   all inside comments — DOS `mem[seg:ofs]` code that no longer compiles.
 
 ### 6.4 `1024 x 512` — the hill graphics
@@ -324,16 +369,16 @@ space the physics runs in.
 | Location | Form | Meaning |
 |---|---|---|
 | `MAKI.PAS:7-11` | `XSize=1024; YSize=512; Alue=XSize*YSize; Sivuja=16; SivuKoko=Alue div Sivuja` | 524 288-byte hill plane, split into 16 pages of 32 768 — the DOS VGA page-flip emulation, preserved. |
-| `MAKI.PAS:209` | `setLength(Graffa, Alue*2+1024)` | 1 049 600 B: foreground at 0, backdrop at `Alue`. |
+| `MAKI.PAS:180` | `setLength(Graffa, Alue*2+1024)` | 1 049 600 B: foreground at 0, backdrop at `Alue`. |
 | `MAKI.PAS:17-18` | `LinjanPituus[0..511]`, `ProfiiliY[0..1300]` | Row extents sized to `YSize`; the profile is over-allocated to 1300 and padded past 1024 in `LaskeLinjat`. |
-| `SJ3UNIT.PAS:709` | `LataaPCX('FRONT...', 1024*512, 0, 0)` | Foreground, pages 0-15. |
-| `SJ3UNIT.PAS:722` | `LataaPCX('BACK...', 1024*400, Maki.Sivuja, ...)` | **400, not 512.** The backdrop is shorter and starts at page 16. |
-| `SJ3UNIT.PAS:1237` | `1024*512` | Same load inside the hill maker. |
-| `SJ3PCX.PAS:364` | `if (x<0) then x := 1024+x` | Backdrop horizontal mirror wrap. |
-| `SJ3.PAS:1289` | `until (x > 1024)` | Marker-placement scan across the hill. |
-| `SJ3.PAS:2020-2026` | `x>=160 .. x<864`, `y>=100 .. y<412`, `Maki.X>704`, `Maki.Y>312` | Camera limits — 1024-320 = 704 and 512-200 = 312. **These couple world size to screen size** and are the one place the two systems meet. |
+| `SJ3UNIT.PAS:610` | `LataaPCX('FRONT...', 1024*512, 0, 0)` | Foreground, pages 0-15. |
+| `SJ3UNIT.PAS:623` | `LataaPCX('BACK...', 1024*400, Maki.Sivuja, ...)` | **400, not 512.** The backdrop is shorter and starts at page 16. |
+| `SJ3UNIT.PAS:1122` | `1024*512` | Same load inside the hill maker. |
+| `SJ3PCX.PAS:340` | `if (x<0) then x := 1024+x` | Backdrop horizontal mirror wrap. |
+| `SJ3.PAS:1297` | `until (x > 1024)` | Marker-placement scan across the hill. |
+| `SJ3.PAS:1997-2003` | `x>=160 .. x<864`, `y>=100 .. y<412`, `Maki.X>704`, `Maki.Y>312` | Camera limits — 1024-320 = 704 and 512-200 = 312. **These couple world size to screen size** and are the one place the two systems meet. |
 
-> **The coupling that will surprise you.** `LataaPCX` (`SJ3PCX.PAS:357`) decodes
+> **The coupling that will surprise you.** `LataaPCX` (`SJ3PCX.PAS:332`) decodes
 > *through* `Video`: it fills `Video[0..SivuKoko-1]`, calls
 > `PaivitaKirjoitusSivu` to flush 32 768 bytes into `Graffa`, then wraps and
 > repeats. So the 320x200 framebuffer is also the PCX scratch page, and
@@ -348,50 +393,50 @@ space the physics runs in.
 
 ### 7.1 Jump physics
 
-All of it is inline in `hyppy`, `SJ3.PAS:1690-2140`. There is no physics unit.
+All of it is inline in `hyppy`, `SJ3.PAS:1663-2090`. There is no physics unit.
 State: `matka` (distance from takeoff), `kor` (height), `px`/`py` (velocity),
 `pl` (lift/glide), `t` (time), `kulma1` (body angle), `kulmas` (ski angle),
 `ssuunta` (ski-swing state machine 1-6).
 
-- **Integration** — `1695` `matka := matka + (px*0.01)`; `1811` `t := t + 0.01`;
-  `1843` `kor := kor + (t*t*pl) - ((py-8)/100)`. Fixed 10 ms step, one step per
+- **Integration** — `1666` `matka := matka + (px*0.01)`; `1784` `t := t + 0.01`;
+  `1816` `kor := kor + (t*t*pl) - ((py-8)/100)`. Fixed 10 ms step, one step per
   rendered frame.
-- **Drag and wind** — `1801-1804`, the tuned `px`/`pl` update using
+- **Drag and wind** — `1774-1777`, the tuned `px`/`pl` update using
   `nsqrt(4*wind+245)`.
-- **Inrun acceleration** — `1981` `px := px * pxk` with `pxk = 1.016`, clamped
+- **Inrun acceleration** — `1958` `px := px * pxk` with `pxk = 1.016`, clamped
   to `maxspeed` (`ActHill.vxfinal`, +/-(startgate-15) in training).
-- **Takeoff** — `1987-2015`: `ponnistus` counts frames since the jump key;
+- **Takeoff** — `1967-1992`: `ponnistus` counts frames since the jump key;
   16 is perfect; early/late sets `ssuunta` and penalises `pl`.
-- **Gusts** — `1810-1840`, probability from `Tuuli.windy` and `Tuuli.voim`.
-- **Scoring and crash risk** — `2145-2250`, with the tables in `SJ3TABLE.PAS`.
-- **AI** — `1745-1790`: `skill`/`reflex` derived from the jumper index,
+- **Gusts** — `1783-1813`, probability from `Tuuli.windy` and `Tuuli.voim`.
+- **Scoring and crash risk** — `2091-2187`, with the tables in `SJ3TABLE.PAS`.
+- **AI** — `1712-1762`: `skill`/`reflex` derived from the jumper index,
   synthesising key events rather than bypassing the input path.
 
 ### 7.2 Hill collision and profile
 
-- `MAKI.PAS:103` `LaskeLinjat` — scans the 1024x512 foreground once per hill
+- `MAKI.PAS:109` `LaskeLinjat` — scans the 1024x512 foreground once per hill
   load. Builds `LinjanPituus` (rightmost solid pixel per row), then
   `ProfiiliY[x]` (first solid row per column), finds the takeoff edge `KeulaX`
   by looking for a >3-pixel drop, and burns the K-point/HS markers into `Graffa`
   as palette indices 238/239.
-- `MAKI.PAS:92` `Profiili(x)` — the terrain query, guarded to `0 < x < 1300`.
-- `SJ3.PAS:828` `MakiKulma(x)` — local slope as a finite difference over samples
+- `MAKI.PAS:97` `Profiili(x)` — the terrain query, guarded to `0 < x < 1300`.
+- `SJ3.PAS:831` `MakiKulma(x)` — local slope as a finite difference over samples
   at x-5..x+9, zeroed in a 15-pixel window before `KeulaX`.
-- **Ground contact** — `SJ3.PAS:1928` `Height := Profiili(x) - round(kor)`, and
-  landing when `Height = 0` (`1942`). Collision is a per-column height test against a
+- **Ground contact** — `SJ3.PAS:1907` `Height := Profiili(x) - round(kor)`, and
+  landing when `Height = 0` (`1920`). Collision is a per-column height test against a
   bitmap-derived profile, nothing more.
-- **Integrity check** — `SJ3UNIT.PAS:712-718` hashes `Profiili` over 1024
+- **Integrity check** — `SJ3UNIT.PAS:613-619` hashes `Profiili` over 1024
   columns and compares against `ActHill.profile`. Change the profile derivation
   in any way and every stock hill fails this check.
 
 ### 7.3 Frame timing
 
-- `SDLPORT.PAS:82` `TimerCallback` — an `SDL_AddTimer` at 1 ms; accumulates
+- `SDLPORT.PAS:85` `TimerCallback` — an `SDL_AddTimer` at 1 ms; accumulates
   elapsed time and increments `frameCount` once per 14 ms
   (`1000 div targetFrames`, `targetFrames = 70`). Effective rate ~71.4 Hz.
-- `SDLPORT.PAS:275` `WaitRaster` — spins on `SDL_Delay(1)` until `frameCount`
+- `SDLPORT.PAS:286` `WaitRaster` — spins on `SDL_Delay(1)` until `frameCount`
   changes. Named for the VGA vertical retrace it replaces.
-- `SDLPORT.PAS:593` `Wait` — `msPerTick = 1000/18.2065`, the IBM PC PIT tick,
+- `SDLPORT.PAS:701` `Wait` — `msPerTick = 1000/18.2065`, the IBM PC PIT tick,
   for legacy `Wait(n)` callers.
 
 > **Timing is gameplay.** The simulation advances exactly one 10 ms step per
@@ -401,36 +446,36 @@ State: `matka` (distance from takeoff), `kor` (height), `px`/`py` (velocity),
 
 ### 7.4 Player input
 
-- `SDLPORT.PAS:284` `KeyPressed` — drains the SDL queue, ignores modifier and
+- `SDLPORT.PAS:295` `KeyPressed` — drains the SDL queue, ignores modifier and
   lock keys to match DOS behaviour, and *re-pushes* the triggering event so the
   following `WaitForKeyPress` can consume it.
-- `SDLPORT.PAS:341` `WaitForKeyPress` — 250 lines translating SDL keysyms into
+- `SDLPORT.PAS:357` `WaitForKeyPress` — 250 lines translating SDL keysyms into
   BIOS `ch1`/`ch2`: Shift/CapsLock case folding, US-QWERTY shifted punctuation,
   NumLock-off keypad remapping, keypad/main merging, CP865 Nordic characters,
   F-keys and cursor keys as scancodes. Also owns the port's own shortcuts
   (Alt+Enter, Alt+/-, Alt+R, Alt+A), handled *before* the game sees the key.
 - `SJ3HELP.PAS:5` — the global `ch`, `ch2` that the whole game reads.
-- `SJ3UNIT.PAS:1964` `kword` — packs the pair into a word for comparison against
+- `SJ3UNIT.PAS:1859` `kword` — packs the pair into a word for comparison against
   bindings `K[1..5]` (jump, forward/left, back/right, telemark, both feet),
   configured in `ConfigureKeys` and stored in `CONFIG.SKI`.
 
 ### 7.5 Replays and saved data
 
-- **Capture** — `SJ3.PAS:2080-2086`, inside the draw block: 5 bytes per frame
+- **Capture** — `SJ3.PAS:2046-2053`, inside the draw block: 5 bytes per frame
   into `RD[0..4, 0..1000]` — dx+128, dy+128, jumper sprite, ski sprite,
   wind+128. Capped at 1001 frames. Only recorded when `draw` is true.
-- **Write** — `SJ3.PAS:1051` `writereplay` — a text header (start position, turn
+- **Write** — `SJ3.PAS:1059` `writereplay` — a text header (start position, turn
   count, hill id and file, profile hash, snow amount, distance, flight window,
   marker positions, suit/ski colours, author, name, timestamp, mode), then a
   checksum `xor 3675433`, then `'*'`, then 5x1001 raw bytes.
-- **Playback** — `SJ3REPL.PAS:37` `playreplay` — integrates the deltas back into
+- **Playback** — `SJ3REPL.PAS:36` `playreplay` — integrates the deltas back into
   absolute positions, replays sprite indices verbatim. **Replays store sprite
   indices, not physics.** That is why sprite numbering in `ANIM.SKI` is part of
   the save format.
-- **Other saves** — `WriteConfig`/`ReadConfig` (`SJ3.PAS:148, 376`),
-  `WriteRecords`/`ReadRecords` (`89, 284`), profiles (`SJ3INFO.PAS:1221, 1294`),
-  extra-hill records (`SJ3UNIT.PAS:2302, 2314`). All obfuscated by
-  `crypt`/`valuestr` (`SJ3UNIT.PAS:2770+`). The README states config files are
+- **Other saves** — `WriteConfig`/`ReadConfig` (`SJ3.PAS:144, 368`),
+  `WriteRecords`/`ReadRecords` (`89, 284`), profiles (`SJ3INFO.PAS:1123, 1210`),
+  extra-hill records (`SJ3UNIT.PAS:2130, 2142`). All obfuscated by
+  `crypt`/`valuestr` (`SJ3UNIT.PAS:2578+`). The README states config files are
   interchangeable with the DOS original.
 
 ---
@@ -445,7 +490,7 @@ State: `matka` (distance from takeoff), `kor` (height), `px`/`py` (velocity),
   `random()` calls changes outcomes.
 - `MAKI.PAS` 92-188 (`Profiili`, `LaskeLinjat`) — the hill profile and the
   checksum every stock hill is validated against.
-- `SJ3REPL.PAS` and `SJ3.PAS:1051` (`writereplay`) plus the `RD[]` writes —
+- `SJ3REPL.PAS` and `SJ3.PAS:1059` (`writereplay`) plus the `RD[]` writes —
   replay format compatibility.
 - Save/load: `WriteConfig`, `ReadConfig`, `WriteRecords`, `ReadRecords`,
   `crypt`/`uncrypt`/`valuestr`, profile I/O.
@@ -467,55 +512,57 @@ and SDL hints. The entire scaling change belongs there.
 
 ---
 
-## 9. Obsolete, commented-out and unused code
+## 9. Dead code
 
-Inventory only. Nothing has been removed.
+The commented-out code is gone, removed in `877109c`: 1038 lines across 13
+units. Superseded implementations (an earlier `LaskeLinjat`, `HillEditor`,
+`startsuit`, a syntactically broken `KorostaTeksti`), DOS-era leftovers
+(`mem[seg:ofs]` blits, `Intr($16)` and inline-assembler `ReadKey` variants,
+`Port[$3c8]` DAC writes, COMSPEC file deletion), debug scaffolding, stale
+sound-card configuration I/O, and dead declarations.
 
-**Live but unreachable**
+Prose comments were kept, Finnish included. Three things were kept
+deliberately:
 
-| Symbol | Where | Status |
-|---|---|---|
-| `Balk` | `SJ3GRAPH.PAS:566` | Empty stub. All 8 call sites in `SJ3.PAS` commented out (1466, 1468, 1588, 1592, 2078, 2089, 2553, 2563). |
-| `GetPixel` | `SJ3GRAPH.PAS:349` | Exported and implemented; zero callers. Its comment reads "en tieda toimiiko" — "not sure if it works". |
-| `PutGPixel` | `SJ3GRAPH.PAS:341` | Implemented; interface declaration commented out; zero callers. |
-| `NumofAnims` | `SJ3GRAPH.PAS:44` | Exported; only call site (`SJ3.PAS:2491`) is commented out. |
-| `HillEditor` | `SJ3UNIT.PAS:2091` | 66 lines, implemented; interface declaration commented at 154; zero callers. Superseded by `HillMaker`. |
-| `AsetaMoodi` | `MAKI.PAS:87` | Empty no-op ("Not needed in port") still called ~12 times as `AsetaMoodi($13)`/`($3)` — vestigial VGA mode switching. |
-| `Lopeta` | `MAKI.PAS:216` | Empty; called once at `SJ3.PAS:2739`. |
-| `HexW` | `SJ3HELP.PAS:88` | Local hex formatter, zero callers. |
+- the physics tuning history in `hyppy`, marked `{ orig. }`, `{ "alkup." }` and
+  `{ vanha }`, which records the constants the live formulas replaced;
+- the alternative FIS scoring formula, a documented design alternative;
+- explanations that only existed inside dead code. In `LUMI` the commented-out
+  constants were the sole documentation of `PerusG`, `GVaihtelu` and
+  `SivuLiike`, so those notes moved onto the live declarations.
 
-**DOS-era code preserved in comments**
+### Still live, still unreachable
 
-- `SJ3UNIT.PAS:230-266` — three alternative `ReadKey` implementations
-  (`Intr($16)`, two inline-assembler variants) and CRT shims.
-- `SJ3REPL.PAS:493-500, 533-537, 675` — the `TempVideo` screen-save path using
-  `mem[seg:ofs]`.
-- `SJ3GRAPH.PAS:88-90` — `Move(mem[Graffa:0], mem[Video:0], 64000)`.
-- `SJ3.PAS:1340` — direct VGA DAC writes, `Port[$3c8]`/`Port[$3c9]`.
-- `SJ3GRAPH.PAS:528-537, 571-576` — empty `HLine`/`VLine` and an `angle` stub
-  whose comment says it never worked and never will.
-- `SJ3GRAPH.PAS:7` — `Splitscreen`, a VGA split-screen register trick,
-  commented out in both interface and its one call site.
+Removing the commented-out callers left a few routines with no callers at all.
+They are real code, not comments, so they were left alone - deleting them is a
+separate decision.
 
-**Still-live DOS dependencies**
+| Symbol | Note |
+|---|---|
+| `Balk` | Empty stub in the port; every call site was commented out. |
+| `GetPixel`, `PutGPixel` | Implemented, never called. |
+| `NumofAnims` | Exported; its only call site was commented out. |
+| `HillEditor` | 66 lines, superseded by `HillMaker`. |
+| `AsetaMoodi` | Empty no-op still called ~12 times - vestigial VGA mode switching. |
+| `Lopeta` | Empty; called once. |
+| `HexW` | Local hex formatter, no callers. |
+| `pluspossibility` | Its only caller was a commented-out line in `SJ3LIST`. |
 
-`SJ3HELP.PAS:39`, `SJ3UNIT.PAS:221` and `SJ3.PAS:2` still `uses crt, dos`. FPC
-provides both, and the game genuinely calls `sound`/`NoSound` in `beep`
-(`SJ3HELP.PAS:60`), plus `textcolor`/`window`/`clrscr` for terminal output on
-the way out, and `Crt.KeyPressed` in the exit wait loop (`SJ3.PAS:5846`).
+### Still-live DOS dependencies
 
-Under SDL the PC-speaker calls are no-ops — **the game currently has no audio at
+`SJ3HELP`, `SJ3UNIT` and `SJ3.PAS` still `uses crt, dos`. FPC provides both, and
+the game genuinely calls `sound`/`NoSound` in `beep`, plus
+`textcolor`/`window`/`clrscr` for terminal output on the way out, and
+`Crt.KeyPressed` in the exit wait loop.
+
+Under SDL the PC-speaker calls are no-ops - **the game currently has no audio at
 all.** Worth a later milestone; out of scope for graphics.
 
-**Commented-out variants**
+### A pre-existing bug, noticed but not fixed
 
-Large blocks of alternative tuning constants and an entire alternative FIS-style
-scoring formula sit commented in `SJ3.PAS:2230-2240`. Layout variants are
-commented throughout `NewScreen` (`SJ3GRAPH.PAS:94-98, 103-106, 108-110,
-144-145`). These are the author's own history and are worth keeping until the
-modernization is settled — several document *why* a constant has its value.
-
----
+`lopputext` picks its parting quote with `case random(40)`, which yields 0..39,
+so the branch numbered 40 can never be selected. Fixing it changes behaviour, so
+it belongs in its own commit.
 
 ## 10. Milestone 1 — 1280x800 with exact 4x4 pixel blocks
 
@@ -566,16 +613,19 @@ Each commit builds and runs on its own.
 **Done**
 
 1. ~~Mask FP exceptions before `SDL_Init`~~ — `6411942`
-2. ~~Untrack files the game rewrites~~ — `1ad3e2d`
+2. ~~Untrack files the game rewrites~~ — `1ad3e2d`, `0f96125`
+3. ~~Add a codegen verification harness~~ — `4f341d1`
+4. ~~Remove commented-out dead code~~ — `877109c`
+5. ~~Reformat the sources~~ — `5b9c1d4`
 
-**Prerequisites**
+**Remaining**
 
-3. **Pin the SDL2 headers.** `build.sh` now wraps the `fpc` line, but it still
-   clones `Pascal-SDL-2-Headers` at whatever `HEAD` happens to be. Vendor it as
+6. **Pin the SDL2 headers.** Partly done - `build.sh` wraps the compile and
+   fetches the headers, but it still clones `Pascal-SDL-2-Headers` at whatever `HEAD` happens to be. Vendor it as
    a submodule at a fixed commit, or check in the files actually needed, and
    update the CI workflow to match. An unpinned third-party clone in the build
    path makes "visually identical to before" unprovable.
-4. **Add a frame-capture and pixel-compare harness.** A script that launches the
+7. **Add a frame-capture and pixel-compare harness.** A script that launches the
    game, drives a fixed key sequence, captures the window with `import`, and
    compares against golden PNGs with `compare -metric AE`. Cover at least: main
    menu, hill-select, the info screen, mid-flight, and the results table. This
@@ -588,26 +638,26 @@ Each commit builds and runs on its own.
    menu — the harness has to either click through that or start from a config
    with a language already chosen.
 
-   Default key bindings (`CONFIG.SKI` lines 32-36, matching `DefaultKeys`):
+   Default key bindings (`CONFIG.SKI` lines 33-37, matching `DefaultKeys`):
    Up = take off, Right = leave the bar / lean forward, Left = lean back,
    T = telemark, R = both feet.
 
 **Milestone 1**
 
-5. **Declare nearest-neighbour scaling explicitly.**
+8. **Declare nearest-neighbour scaling explicitly.**
    `SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, '0')` before creating the
    renderer. No visible change — turns an accidental default into a guarantee.
-6. **Set an explicit clear colour for the letterbox.**
+9. **Set an explicit clear colour for the letterbox.**
    `SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255)` before `SDL_RenderClear`.
-7. **Snap the destination rect to an integer scale factor.** Rework
+10. **Snap the destination rect to an integer scale factor.** Rework
    `GetRenderRect` so that in square-pixel mode it computes
    `scale := min(outW div 320, outH div 200)`, clamps to at least 1, and centres
    a `320*scale x 200*scale` rect. Every source pixel becomes an exact
    `scale x scale` block at any window size, with letterboxing absorbing the
    remainder. Keep the existing fractional path for the Alt+A 4:3 mode.
-8. **Default to a 4x window (1280x800).** `windowMultiplier := 4`, with a guard
+11. **Default to a 4x window (1280x800).** `windowMultiplier := 4`, with a guard
    that steps down if the display cannot hold it.
-9. **Handle HiDPI and size-changed events correctly.** Also listen for
+12. **Handle HiDPI and size-changed events correctly.** Also listen for
    `SDL_WINDOWEVENT_SIZE_CHANGED`, not only `RESIZED` (the former fires for
    programmatic resizes, which is what Alt+/- does), and rely on
    `SDL_GetRendererOutputSize` rather than window size so a HiDPI backing scale
@@ -615,12 +665,12 @@ Each commit builds and runs on its own.
 
 **After the milestone is verified green**
 
-10. **Name the framebuffer geometry constants.** Introduce `ScreenW = 320`,
+13. **Name the framebuffer geometry constants.** Introduce `ScreenW = 320`,
     `ScreenH = 200`, `ScreenBytes = ScreenW*ScreenH` in `Maki` and replace the
     literal stride arithmetic in `SJ3GRAPH`, `LUMI` and `MAKI` — including the
     `shl 8 + shl 6` in `Fillbox` and the `63679` in `LUMI`, which becomes
     `ScreenBytes - ScreenW - 1`. Strictly a no-op refactor, verified by the
-    harness from step 4. Leave layout coordinates (319, 199, panel positions) as
+    harness from step 7. Leave layout coordinates (319, 199, panel positions) as
     literals — they are content, not geometry.
 
 ---
