@@ -773,22 +773,22 @@ var { SoundOn : array[0..5] of boolean; }
 
   statsvictim : integer;
 
-  JumperAnim, SkiAnim, ponnphase : byte;
+  JumperAnim, SkiAnim, takeoffPhase : byte;
 
   kr : integer;
-  ponnistus : integer;
+  takeoff : integer;
   qx : single;
 
 {    KeulaX : integer; }
 
   paras : integer;
 
-  kor,matka,px,pxk,py,t,pl,kkor {,makikulma} : single;
+  posY,distance,px,pxk,py,t,lift,dropY {,makikulma} : single;
 
   umatka, ukor, upx : single;
   ux : integer;
 
-  kulma1, kulmas, hp, x, y, height : integer;
+  bodyAngle, skiAngle, hp, x, y, height : integer;
 
   deltah : array[0..5] of integer;
 
@@ -799,17 +799,17 @@ var { SoundOn : array[0..5] of boolean; }
   DeltaX, DeltaY : integer;  { vaikkakin maki.x ja y ovat longintej„ }
 
   ok, out, hillrecord : boolean;
-  kupat, clanding, landing, grade : byte;
+  crashKind, clanding, landing, grade : byte;
 
-  riski, laskuri : longint;
+  crashRisk, laskuri : longint;
   tyylip : array[1..7] of integer;
 {    LStyle : byte; }
 
   score : integer;
 
-  kulmalaskuri : integer;
+  poseTimer : integer;
 
-  startanim, ssuunta : integer;
+  startanim, skiSwing : integer;
 
   namestr, str1, str2 : string;
   replayfilename, replayname : string;
@@ -1253,7 +1253,7 @@ begin
 
   KeulaY := Profiili(KeulaX);  { helpottaa vaan }
 
-  pl := acthill.plsave;  { plsave on m„enparametreja }
+  lift := acthill.plsave;  { plsave on m„enparametreja }
   maxspeed := acthill.vxfinal; { n„in voidaan lavaa vaihtaa... }
 
   tyylip[1] := 195;  { ennen 200, v3.0 195 }
@@ -1266,7 +1266,7 @@ begin
   wry := 0;
   goalx := 0;
   goaly := 0;
-  matka := 0;
+  distance := 0;
 
  { haetaan m„kienkkakepille mesta! }
 
@@ -1275,52 +1275,52 @@ begin
 
   if (draw) then
     repeat
-      matka := matka+1;
+      distance := distance+1;
 
-      x := round(matka+qx);
-      kor := Profiili(x);
-      kkor := kor-KeulaY;
-      hp := round(nsqrt((matka*matka)+(kkor*kkor))*acthill.pk*0.5)*5;
+      x := round(distance+qx);
+      posY := Profiili(x);
+      dropY := posY-KeulaY;
+      hp := round(nsqrt((distance*distance)+(dropY*dropY))*acthill.pk*0.5)*5;
 
       if (hp>=HRLen(nytmaki)) and (HRLen(nytmaki)>0) and (wrx=0) then
         begin
           wrx := x;
-          wry := round(kor)-9;
+          wry := round(posY)-9;
         end;
 
       if (hp>=temp) and (temp<>0) and (goalx=0) then
         begin
           goalx := x;
-          goaly := round(kor)-7;
+          goaly := round(posY)-7;
         end;
 
     until (x>1024);
 
   hp := 0;
-  kkor := 0;
+  dropY := 0;
 
-  matka := -KeulaX+10;
+  distance := -KeulaX+10;
   qx := KeulaX+0.5; { emme halua, ett„ se toteaa keulalla matkan>0 }
 
-  x := round(matka+qx);
+  x := round(distance+qx);
 
-  kor := Profiili(x);  { alasp„in on positiivinen }
+  posY := Profiili(x);  { alasp„in on positiivinen }
 
-  y := round(kor);
+  y := round(posY);
 
-  ponnistus := 0;
+  takeoff := 0;
   Out := False;
   Ok := True;  { OK to be used w/ ei ponnistanut }
   height := 0; { „ij„n korkeus m„est„ }
   for temp:=0 to 5 do
     DeltaH[temp] := 0;
-  riski := 0; { kaatumisriski }
+  crashRisk := 0; { kaatumisriski }
 
   landing := 0; { 0 - ei, 1 - telemark, 2 - tasajalka }
   clanding := 0; { tuleva lask. 0 - ei, 1 - tele, 2 - tasa }
-  kupat := 0;   { 0 - ei, 1 - oma moka, 2 - huono s„k„ }
+  crashKind := 0;   { 0 - ei, 1 - oma moka, 2 - huono s„k„ }
 
-  ponnphase := 0;  { t„m„ m„„r„„ animaation asennon ukossa }
+  takeoffPhase := 0;  { t„m„ m„„r„„ animaation asennon ukossa }
 
   py := 0; { vauhtia Y-akselin ei oo, tai on mutta summa=0 }
 
@@ -1329,10 +1329,10 @@ begin
 
   t := 0;  { aika }
 
-  kulma1 := 0; { Žij„n kropan kulma }
-  kulmas := 0; { Suksien kulma }
+  bodyAngle := 0; { Žij„n kropan kulma }
+  skiAngle := 0; { Suksien kulma }
 
-  ssuunta := 0;  { sukset eiv„t liiku mihink„„n }
+  skiSwing := 0;  { sukset eiv„t liiku mihink„„n }
 
   replayname := '?';
   replayfilename := 'TEMP';
@@ -1368,7 +1368,7 @@ begin
 
 {
   writefont(200,10,'VXF '+txt(acthill.vxfinal));
-  writefont(200,20,'PL '+txt(round(pl*100)));
+  writefont(200,20,'lift '+txt(round(lift*100)));
   writefont(200,30,'PK '+txt(round(acthill.pk*100)));
 }
   jarjesta5(index);
@@ -1496,7 +1496,7 @@ begin
   SkiAnim := SuksiLaskussa(MakiKulma(x));
   JumperAnim := 164;
 
-  KulmaLaskuri := 0; { k„ytet„„n t„t„ parruanimia }
+  poseTimer := 0; { k„ytet„„n t„t„ parruanimia }
   px := 0;
 
   if (draw) then FontColor(247);
@@ -1515,9 +1515,9 @@ begin
 
 {   PutPixel(KeulaX-Maki.X,Profiili(KeulaX)-Maki.Y,15); }
 
-      if (kulmalaskuri>3024) and (kulmalaskuri<4000) then
+      if (poseTimer>3024) and (poseTimer<4000) then
         begin
-          temp := kulmalaskuri-3024;
+          temp := poseTimer-3024;
           sx := x-Maki.X+4;
           sy := y-Maki.Y-10;
 
@@ -1528,7 +1528,7 @@ begin
           inc(sy,(temp*temp) div 160);
 
           if (sy< profiili(sx)) then putpixel(sx,sy,225)
-          else kulmalaskuri := 0;
+          else poseTimer := 0;
 
         end;
 
@@ -1583,27 +1583,27 @@ begin
           if (ch=#27) then out := true;
         end;
       if (cjumper) and ((random(100)=0) or (laskuri>600)) then Out := True;
-      if (cjumper) and (random(100)=0) and (kulmalaskuri=0) then
+      if (cjumper) and (random(100)=0) and (poseTimer=0) then
         begin
-          kulmalaskuri := (random(3)+1)*1000;
+          poseTimer := (random(3)+1)*1000;
           sx := 0;
           sy := 0;
         end;
 
-      if (kulmalaskuri>0) then inc(kulmalaskuri);
+      if (poseTimer>0) then inc(poseTimer);
 
-      if (kulmalaskuri=0) and (not cjumper) then
+      if (poseTimer=0) and (not cjumper) then
         begin
-          if (kword(ch,ch2)=K[3]) then kulmalaskuri := 3000;
-          if (kword(ch,ch2)=K[4]) then kulmalaskuri := 2000;
-          if (kword(ch,ch2)=K[1]) then kulmalaskuri := 1000;
+          if (kword(ch,ch2)=K[3]) then poseTimer := 3000;
+          if (kword(ch,ch2)=K[4]) then poseTimer := 2000;
+          if (kword(ch,ch2)=K[1]) then poseTimer := 1000;
 
           sx := 0;
           sy := 0;
 
         end;
 
-      JumperAnim := ParruAnim(kulmalaskuri);
+      JumperAnim := ParruAnim(poseTimer);
 
       if (ch=#27) and (cjumper) then JumperAnim := 164; { emm„ haluu tsiigaa }
 
@@ -1644,16 +1644,16 @@ begin
   if (cjumper) and (not draw) then { nopeutetaan v„h„n :) }
     begin
       px := acthill.vxfinal;
-      matka := -45;
+      distance := -45;
       for temp:=1 to 100 do
         Tuuli.Siirra; { veivataan my”s tuulta v„h„n }
     end;
 
-  kulmalaskuri := 200;
+  poseTimer := 200;
 
 {
  writefont(100,100,'ch: '+txt(byte(ch)));
- writefont(100,110,'m: '+txt(round(matka)));
+ writefont(100,110,'m: '+txt(round(distance)));
  drawscreen;
  readkey;
 }
@@ -1663,12 +1663,12 @@ begin
 
       Tuuli.Hae;
 
-      matka := matka+(px*0.01);
+      distance := distance+(px*0.01);
 
       fx := x;  { former x & y }
       fy := y;
 
-      x := round(matka+qx);
+      x := round(distance+qx);
 
       if (Ch<>#27) then Ch := #0;  { en tied„ muisteleeko se vanhoja }
       ch2 := #0;
@@ -1707,22 +1707,22 @@ begin
 
         end;
 
-      if (matka>=0) then  { matka => 0 eli kun matka=0 ollaan jo lennossa }
+      if (distance>=0) then  { distance => 0 eli kun distance=0 ollaan jo lennossa }
         begin
 
           inc(laskuri);
 
-          if (kulma1<kulmalaskuri) then kulmalaskuri := kulma1;
+          if (bodyAngle<poseTimer) then poseTimer := bodyAngle;
 
           if (cjumper) then
             begin
          { automatic jumper angle differentiating }
-              if (LentoAnim(kulma1) > 107) and (laskuri mod reflex = 0) then
+              if (LentoAnim(bodyAngle) > 107) and (laskuri mod reflex = 0) then
                 begin
                   ch := chr(hi(K[2]));
                   ch2 := chr(lo(K[2]));
                 end;
-              if (LentoAnim(kulma1) < 107) and (laskuri mod reflex = 0) then
+              if (LentoAnim(bodyAngle) < 107) and (laskuri mod reflex = 0) then
                 begin
                   ch := chr(hi(K[3]));
                   ch2 := chr(lo(K[3]));
@@ -1741,7 +1741,7 @@ begin
           Writefont(250,90,'C'+txt(clanding)+' L'+txt(landing)); }
 
          { kumpualastulovarmistus! }
-              if (landing=0) and (matka>3) and (height<4) then
+              if (landing=0) and (distance>3) and (height<4) then
                 begin { beep(2); }
                   landing := 2;
                 end;
@@ -1761,25 +1761,25 @@ begin
           if (kword(ch,ch2)=K[4]) then Landing := 1;
           if (kword(ch,ch2)=K[5]) then Landing := 2;
 
-          if (kword(ch,ch2)=K[3]) and (kulma1<=600) then kulma1 := kulma1+round(kulma1/4);
-          if (kword(ch,ch2)=K[2]) and (Landing=0) and (kulma1>0) then kulma1 := kulma1-round(kulma1/
+          if (kword(ch,ch2)=K[3]) and (bodyAngle<=600) then bodyAngle := bodyAngle+round(bodyAngle/4);
+          if (kword(ch,ch2)=K[2]) and (Landing=0) and (bodyAngle>0) then bodyAngle := bodyAngle-round(bodyAngle/
                                                                                 5);
 
         { ylirotaatio }
-          if (kulma1<50) then
+          if (bodyAngle<50) then
             begin
-              pl := pl+0.0001-((kulma1-50)/18000); {beep(1);}
+              lift := lift+0.0001-((bodyAngle-50)/18000); {beep(1);}
             end;
 
-{ orig. if (tuuli>0) then pl:=pl-((1-(kulma1/900))/1500)+(sqrt(sqrt(2*tuuli)))/52400
-         else pl:=pl-((1-(kulma1/900))/1500)-(sqrt(sqrt(-2*tuuli)))/52400; }
+{ orig. if (tuuli>0) then lift:=lift-((1-(bodyAngle/900))/1500)+(sqrt(sqrt(2*tuuli)))/52400
+         else lift:=lift-((1-(bodyAngle/900))/1500)-(sqrt(sqrt(-2*tuuli)))/52400; }
 
-          if (tuuli.value>0) then pl := pl-((1-(kulma1/900))/1875)+(sqrt(sqrt(2*tuuli.value)))/65500
-          else pl := pl-((1-(kulma1/900))/1875)-(sqrt(sqrt(-2*tuuli.value)))/65500;
+          if (tuuli.value>0) then lift := lift-((1-(bodyAngle/900))/1875)+(sqrt(sqrt(2*tuuli.value)))/65500
+          else lift := lift-((1-(bodyAngle/900))/1875)-(sqrt(sqrt(-2*tuuli.value)))/65500;
 
-{      px:=px-((kulma1/900)/19)+((sqrt(4*tuuli.value+245)-16)/360); } { "alkup." }
-{      px:=px-((kulma1/900)/24)+((sqrt(4*tuuli.value+245)-16)/455); }
-          px := px-((kulma1/900)/20)+((nsqrt(4*tuuli.value+245)-16)/400);
+{      px:=px-((bodyAngle/900)/19)+((sqrt(4*tuuli.value+245)-16)/360); } { "alkup." }
+{      px:=px-((bodyAngle/900)/24)+((sqrt(4*tuuli.value+245)-16)/455); }
+          px := px-((bodyAngle/900)/20)+((nsqrt(4*tuuli.value+245)-16)/400);
 
           t := t+0.01;
 
@@ -1794,149 +1794,149 @@ begin
               temp := random(15);  { „ij„n kulman muutos... SŽŽDŽ TŽTŽ! }
               dec(temp,6);
 
-              Kulma1 := kulma1+temp;
+              bodyAngle := bodyAngle+temp;
 
               if (temp>0) then
                 begin { puuska tuo sukset yl”s }
-                  ssuunta := 3;
-                  pl := pl-random(tuuli.voim+50)/15000;
+                  skiSwing := 3;
+                  lift := lift-random(tuuli.voim+50)/15000;
                 end;
 
               if (temp<0) then
                 begin { puuska vie suksia alas }
-                  ssuunta := 6;
-{           pl:=pl-random(tvoim+20)/6000+(tvoim/12000); } { vanha }
-                  pl := pl+random(tuuli.voim+50)/15000;
+                  skiSwing := 6;
+{           lift:=lift-random(tvoim+20)/6000+(tvoim/12000); } { vanha }
+                  lift := lift+random(tuuli.voim+50)/15000;
                 end;
 
             end;
 
-          if (pl<0.105) then pl := 0.105; { leijuntaesto :) }
+          if (lift<0.105) then lift := 0.105; { leijuntaesto :) }
 
-          kor := kor+(t*t*pl)-((py-8)/100);
+          posY := posY+(t*t*lift)-((py-8)/100);
 
 {       delay(600); }
 
-          if (ssuunta>0) then  { SUKSIEN HEILUNTA - ponnistusfibat ja puuskat }
+          if (skiSwing>0) then  { SUKSIEN HEILUNTA - ponnistusfibat ja puuskat }
             begin
 
-              case ssuunta of
+              case skiSwing of
 
                 2 :
                     begin { ponn my”h„ss„, k menossa alas }
-                      if (kulmas<0) then inc(kulmas,2); { 4, 3 }
-                      if (kulmas>0) then kulmas := 0;
+                      if (skiAngle<0) then inc(skiAngle,2); { 4, 3 }
+                      if (skiAngle>0) then skiAngle := 0;
                     end;
 
                 1 :
                     begin { ponn my”h„ss„, k tulossa yl”s }
 
-                      if (kulmas=0) then
+                      if (skiAngle=0) then
                         begin { first strike }
-                          kulmas := -51-(16-ponnistus)*6;
-                          if (kulmas<-105) then kulmas := -105;
+                          skiAngle := -51-(16-takeoff)*6;
+                          if (skiAngle<-105) then skiAngle := -105;
 
                         end
-                      else dec(kulmas,4);
+                      else dec(skiAngle,4);
 
-                      if (kulmas < (ponnistus-16)*14) then ssuunta := 2;
+                      if (skiAngle < (takeoff-16)*14) then skiSwing := 2;
 
                     end;
 
                 3 :
                     begin { puuska, k saa iskua (ja tulee alas) }
-                      kulmas := kulmas-random(50)-30;
-                      ssuunta := 2;
+                      skiAngle := skiAngle-random(50)-30;
+                      skiSwing := 2;
                     end;
 
                 5 :
                     begin { ponn ajoissa, k tulossa yl”s }
-                      if (kulmas>0) then dec(kulmas,1);
-                      if (kulmas<0) then kulmas := 0;
+                      if (skiAngle>0) then dec(skiAngle,1);
+                      if (skiAngle<0) then skiAngle := 0;
                     end;
 
                 4 :
                     begin { ponn ajoissa, k menee alas }
 
-                      if (kulmas=0) then
+                      if (skiAngle=0) then
                         begin { first strike }
-                          kulmas := 70+(ponnistus-16)*6;
-                          if (kulmas>130) then kulmas := 130; { ei nyt ihan „lyt”n }
+                          skiAngle := 70+(takeoff-16)*6;
+                          if (skiAngle>130) then skiAngle := 130; { ei nyt ihan „lyt”n }
 
                         end
-                      else inc(kulmas,3);
+                      else inc(skiAngle,3);
 
-                      if (kulmas > (ponnistus-16)*14) then ssuunta := 5; { riitt„„ }
+                      if (skiAngle > (takeoff-16)*14) then skiSwing := 5; { riitt„„ }
 
                     end;
 
                 6 :
                     begin { puuska, k saa iskua (ja tulee yl”s) }
-                      kulmas := kulmas+random(50)+30;
-                      ssuunta := 5;
+                      skiAngle := skiAngle+random(50)+30;
+                      skiSwing := 5;
                     end;
 
               end; { case }
 
-              if (kulmas=0) then ssuunta := 0;
+              if (skiAngle=0) then skiSwing := 0;
             end;
 
           if (Landing>0) then  { alastulolis„ykset }
-            if (kulma1<600) then
+            if (bodyAngle<600) then
               begin
-                kulma1 := kulma1+9+(landing-1)*5;
+                bodyAngle := bodyAngle+9+(landing-1)*5;
 
-                if (pl<1) then pl := pl+0.003;
+                if (lift<1) then lift := lift+0.003;
               end;
 
           if (OK) then  { alkukulma... RUN ONCE (OK) }
             begin
-              kulma1 := 158;
+              bodyAngle := 158;
               OK := False;
 
-              if (ponnistus<16) then ssuunta := 1; { ponn liian my”h„„n - k„rjet yl”s}
-              if (ponnistus>16) then ssuunta := 4; { ponn liian aikaisin - k„rjet alas }
-              if (ponnistus=0) then ssuunta := 0; { ei sitten ponnistanut ollenkaan }
+              if (takeoff<16) then skiSwing := 1; { ponn liian my”h„„n - k„rjet yl”s}
+              if (takeoff>16) then skiSwing := 4; { ponn liian aikaisin - k„rjet alas }
+              if (takeoff=0) then skiSwing := 0; { ei sitten ponnistanut ollenkaan }
             end;
 
-          JumperAnim := LentoAnim(kulma1);
+          JumperAnim := LentoAnim(bodyAngle);
 
-          if (Ponnphase<25) then JumperAnim := PonnAnim(ponnphase);
+          if (takeoffPhase<25) then JumperAnim := PonnAnim(takeoffPhase);
 
           temp := Height; { vanha korkeus }
-          Height := Profiili(x)-round(kor);
+          Height := Profiili(x)-round(posY);
 
           if (Height<0) then Height := 0;
 
           DeltaH[laskuri mod 3] := temp-Height;
 
-          if (Height<6) { and (kulmas>-10) } and (matka>20) then
+          if (Height<6) { and (skiAngle>-10) } and (distance>20) then
             begin  { j„nnitt„v„ m„en ennakointi! }
-              if (kulmas=0) then ssuunta := 0; { meik„ m„„r„„ varmasti asennon }
+              if (skiAngle=0) then skiSwing := 0; { meik„ m„„r„„ varmasti asennon }
               SkiAnim := SuksiLaskussa(MakiKulma(x) div (Height+1));
             end
-          else SkiAnim := SuksiLennossa(kulmas);
+          else SkiAnim := SuksiLennossa(skiAngle);
 
           if (Height=0) then Out := true; { the eagle has landed }
 
         end
       else
 
-        begin  { matka < 0 }
+        begin  { distance < 0 }
 
           inc(laskuri);
 
         { mies ponnistaa jo... }
-          if (Ponnistus>0) then inc(ponnistus);
+          if (takeoff>0) then inc(takeoff);
 
-        { start ponnistus! }
-          if (kword(ch,ch2)=K[1]) and (matka>-40) and (ponnistus=0) then
+        { start takeoff! }
+          if (kword(ch,ch2)=K[1]) and (distance>-40) and (takeoff=0) then
             begin
-              inc(Ponnistus);
+              inc(takeoff);
             end;
 
        { Automaattiponnistus }
-          if (cjumper) and (matka>-(skill*px*0.01)) and (ponnistus=0) then inc(ponnistus);
+          if (cjumper) and (distance>-(skill*px*0.01)) and (takeoff=0) then inc(takeoff);
 
           SkiAnim := SuksiLaskussa(MakiKulma(x));
 
@@ -1949,11 +1949,11 @@ begin
               if (laskuri<14) then px := 0;
             end;
 
-          if (ponnistus>0) then JumperAnim := PonnAnim(ponnphase);
+          if (takeoff>0) then JumperAnim := PonnAnim(takeoffPhase);
 
          { Pudotetaan „ij„ }
 
-          kor := Profiili(x);
+          posY := Profiili(x);
 
           px := px*pxk;  { Hanaa... }
 
@@ -1962,36 +1962,36 @@ begin
               px := maxspeed; {beep(2);}
             end;
 
-          if (ponnistus>0) then
+          if (takeoff>0) then
             begin
          { ponnistuslis„ys }
               px := px+0.21;
               py := py+1.21;
-              kulma1 := kulma1+12;
+              bodyAngle := bodyAngle+12;
 
-              if (ponnistus>16) then { Ponnistus liian aikaisin }
+              if (takeoff>16) then { takeoff liian aikaisin }
                 begin
 
-                  if (ponnistus=17) then
+                  if (takeoff=17) then
                     begin
-                      pl := pl+0.023;
+                      lift := lift+0.023;
                       if (not cjumper) and (beeppi) then beep(1);
                     end;
 
-                  pl := pl+0.013;
+                  lift := lift+0.013;
                   py := py-1;
 
                   if (kierros>0) then stats[statsvictim,osakilpailu].Reason[kierros] := 1;
 
-                  kulma1 := 158;  { onko tarpeellinen?? }
+                  bodyAngle := 158;  { onko tarpeellinen?? }
 
                 end;
             end;
 
         end;  { end matkariippuvaiset }
 
-      x := round(matka+qx);
-      y := round(kor);
+      x := round(distance+qx);
+      y := round(posY);
 
       if (draw) then
         begin
@@ -2025,17 +2025,17 @@ begin
 {   Lumi.Update(Video,128,(DeltaX-Maki.X)*2,(DeltaY-Maki.Y)*2); }
 
 {   Writefont(x-Maki.X+20,y-Maki.Y-20,txt(round(px))); }
-{   Writefont(x-Maki.X,y-Maki.Y-25,txt(round(pl*100))); }
+{   Writefont(x-Maki.X,y-Maki.Y-25,txt(round(lift*100))); }
 {   Writefont(x-Maki.X-20,y-Maki.Y-20,txt(round(py))); }
 
 {    Writefont(x-maki.x,y-maki.y-25,txt(deltah[0]));
     Writefont(x-maki.x,y-maki.y-19,txt(deltah[1]));
     Writefont(x-maki.x,y-maki.y-13,txt(deltah[2])); }
 
-{   Writefont(x-Maki.X-20,y-Maki.Y-20,txt(round(kulma1))); }
+{   Writefont(x-Maki.X-20,y-Maki.Y-20,txt(round(bodyAngle))); }
 
-{   Writefont(x-Maki.X+20,y-Maki.Y-20,txt(round(kulmas)));
-    Writefont(x-Maki.X,y-Maki.Y-20,txt(ssuunta)); }
+{   Writefont(x-Maki.X+20,y-Maki.Y-20,txt(round(skiAngle)));
+    Writefont(x-Maki.X,y-Maki.Y-20,txt(skiSwing)); }
 {   Writefont(x-Maki.X,y-Maki.Y-20,txt(makikulma(x))); }
 {   Writefont(x-Maki.X,y-Maki.Y-20,txtp(hp)); }
 
@@ -2048,7 +2048,7 @@ begin
           RD[2,RTurns] := JumperAnim;
           RD[3,RTurns] := SkiAnim;
           RD[4,RTurns] := byte(Tuuli.value+128);
-          if (matka<0) then RFlstart := Rturns
+          if (distance<0) then RFlstart := Rturns
           else RFlstop := Rturns;
 
           inc(RTurns);
@@ -2059,8 +2059,8 @@ begin
 
     until (Out);   { ***  LENTO LOPPUU  *** }
 
-  kkor := kor-KeulaY;
-  hp := round(nsqrt((matka*matka)+(kkor*kkor))*acthill.pk*0.5)*5;
+  dropY := posY-KeulaY;
+  hp := round(nsqrt((distance*distance)+(dropY*dropY))*acthill.pk*0.5)*5;
 
   if (ch=#27) then { painoi ESCi„ }
     begin
@@ -2082,23 +2082,23 @@ begin
       if (kr<>0) then grade := round(hp/kr)*10;
 
       temp := MakiKulma(x);
-      height := round((temp*1.34) + (kulma1/10));
+      height := round((temp*1.34) + (bodyAngle/10));
 
-      riski := jumprisk(temp);
-      if (hp<20/3*kr) then riski := 1; { lyhyiden hyppyjen riski? }
+      crashRisk := jumprisk(temp);
+      if (hp<20/3*kr) then crashRisk := 1; { lyhyiden hyppyjen crashRisk? }
 
-      if (height<63) then riski := round(riski*(1+((63-height)*0.075)));
+      if (height<63) then crashRisk := round(crashRisk*(1+((63-height)*0.075)));
 
       if (landing=0) or (height < 56) then
         begin
           if (kierros>0) then stats[statsvictim,osakilpailu].Reason[kierros] := 2;
-          kupat := 2;
-          if (landing=0) then kupat := 1;
+          crashKind := 2;
+          if (landing=0) then crashKind := 1;
         end;
 
       if (landing=1) then { telemark-juttuja }
         begin
-          inc(riski,2*riski);
+          inc(crashRisk,2*crashRisk);
 {        inc(laskuri,3*laskuri); }
 
           if (height<60) then dec(tyylip[1],5);
@@ -2107,29 +2107,29 @@ begin
 
 {      writefont(270,10,txt(round(makikulma(x)))); }
 
-{     writefont(270,20,txt(round(kulma1/10)));
-      writefont(270,30,txt(round((makikulma(x)*1.34) + (kulma1/10)))); }
+{     writefont(270,20,txt(round(bodyAngle/10)));
+      writefont(270,30,txt(round((makikulma(x)*1.34) + (bodyAngle/10)))); }
 
 {      writefont(260,40,'K'+txt(round(temp)));
       writefont(260,20,'OLD-R'+txtp(laskuri)); }
-{       writefont(260,30,'NEW-R'+txtp(riski)); }
+{       writefont(260,30,'NEW-R'+txtp(crashRisk)); }
 
-{      writefont(270,30,'L'+txt(kulmalaskuri)); }
+{      writefont(270,30,'L'+txt(poseTimer)); }
 {      writefont(260,40,'H'+txt(height)); }
 
 {      drawscreen;
        readkey; }
 
-      if (random(1000)<riski) then { liian longa hyppy tai vaan kehno sk„g„ }
+      if (random(1000)<crashRisk) then { liian longa hyppy tai vaan kehno sk„g„ }
         begin
           if (kierros>0) then stats[statsvictim,osakilpailu].Reason[kierros] := 3;
-          kupat := 3;
+          crashKind := 3;
         end;
 
       for temp:=1 to round((kr+(kr/20)-(hp/10))/6) do
         tyylip[1] := tyylip[1]-5;
 
-      if (kupat>0) then tyylip[1] := tyylip[1]-100
+      if (crashKind>0) then tyylip[1] := tyylip[1]-100
       else
         if (landing=2) then dec(tyylip[1],15+random(2)*5); { tasajalka tuomarirokotus }
 
@@ -2148,7 +2148,7 @@ begin
           if (tyylip[temp]<tyylip[6]) then tyylip[6] := tyylip[temp];
         end;
 
-      if (kupat>0) then inj[pel] := injured; { LOUKKAANTUMINEN!!! }
+      if (crashKind>0) then inj[pel] := injured; { LOUKKAANTUMINEN!!! }
 
       score := 0;
 
@@ -2213,7 +2213,7 @@ begin
             Profile[actprofile].besthillfile := hillfile(nytmaki-NumWCHills);
         end;
 
-      if (not koth) and (kupat=0) and (not treeni) and (hp > HRLen(nytmaki)) then
+      if (not koth) and (crashKind=0) and (not treeni) and (hp > HRLen(nytmaki)) then
         hillrecord := true;
 
       if (cjumper) and (not comphrs) then hillrecord := false; { ei saa }
@@ -2243,15 +2243,15 @@ begin
 
       if (landing=2) then dec(startanim,50);
 
-      umatka := matka; { ukon koordinaatit, jos sukset l„htee alta... }
-      ukor := kor;
+      umatka := distance; { ukon koordinaatit, jos sukset l„htee alta... }
+      ukor := posY;
       upx := px;
 
       FontColor(247);
 
       Out := False;
 
-      if (kupat>0) then grade := kupat;
+      if (crashKind>0) then grade := crashKind;
 
       if (draw) then
         repeat                 { ***  LASKU  *** }
@@ -2260,18 +2260,18 @@ begin
 
           inc(laskuri);
 
-          matka := matka+(px*0.008);
+          distance := distance+(px*0.008);
           umatka := umatka+(upx*0.008);
 
-          if (OK) then matka := umatka;
+          if (OK) then distance := umatka;
 
           fx := x;
           fy := y;
 
-          x := round(matka+qx);
+          x := round(distance+qx);
           ux := round(umatka+qx);
 
-          kor := Profiili(x);
+          posY := Profiili(x);
           ukor := Profiili(ux);
 
           SkiAnim := SuksiLaskussa(MakiKulma(x));
@@ -2280,7 +2280,7 @@ begin
 
           if (laskuri<7) and (landing>0) then JumperAnim := 113+landing; { esilaskeutuminen }
 
-          if (kupat>0) then
+          if (crashKind>0) then
             begin
 
               if (laskuri>50) and (upx>0) then upx := upx-0.8;
@@ -2290,16 +2290,16 @@ begin
                   if (OK) then Out := True;
                 end;
 
-              case kupat of
+              case crashKind of
                 1,2 :
                       begin { ei alastuloa, „ij„ suoraan turvalleen }
 
-                        temp := 2-(kulma1 div 80);
+                        temp := 2-(bodyAngle div 80);
                         if (temp<0) then temp := 0;
 
                         tempb := 142+laskuri div 10+temp;
 
-                        if (kupat=2) then tempb := 142+(laskuri-6) div 10+temp;
+                        if (crashKind=2) then tempb := 142+(laskuri-6) div 10+temp;
 
                         if (tempb>145) then
                           begin
@@ -2312,7 +2312,7 @@ begin
                             end; { case }
                           end;
 
-                        if not ((kupat=2) and (laskuri<6)) then JumperAnim := tempb;
+                        if not ((crashKind=2) and (laskuri<6)) then JumperAnim := tempb;
 
                       end;
 
@@ -2397,8 +2397,8 @@ begin
           DeltaX := Maki.X;
           DeltaY := Maki.Y;
 
-          x := round(matka+qx);
-          y := round(kor);
+          x := round(distance+qx);
+          y := round(posY);
 
           if (x>=160) and (x<864) then inc(sx,x-fx);
           if (y>=100) and (y<412) then inc(sy,y-fy);
@@ -2414,7 +2414,7 @@ begin
 {       PutPixel(KeulaX-Maki.X,Profiili(KeulaX)-Maki.Y,15); }
 {       Writefont(x-maki.x,y-maki.y-15,txt(SkiAnim-71)); }
 {       Writefont(x-Maki.X,y-Maki.Y-20,txt(makikulma(x))); }
-{       Writefont(x-Maki.X+15,y-Maki.Y-15,txt(kulma1)); }
+{       Writefont(x-Maki.X+15,y-Maki.Y-15,txt(bodyAngle)); }
 {       DrawAnim(x-Maki.X,y-Maki.Y-2,JumperAnim); }
 
 {   Writefont(10,192,'LJA: '+txt(JumperAnim));
@@ -2531,8 +2531,8 @@ begin
         end;
 
 {
-       WriteFont(160,9,'P'+txt(ponnistus));
-       WriteFont(160,21,'R'+txtp(riski));
+       WriteFont(160,9,'P'+txt(takeoff));
+       WriteFont(160,21,'R'+txtp(crashRisk));
        Writefont(160,45,'RL'+txt(reflexlaskuri div 5)); }
 
       if (draw) and ((gdetail=0) or (not cjumper)) then FontColor(247);
@@ -2621,7 +2621,7 @@ begin
         end;
 
       if (draw) and (not cjumper) and (grade>0) and
-         (Profile[actprofile].cstyle>0) then DoCoachCorner(height,kulmalaskuri,grade,ponnistus,
+         (Profile[actprofile].cstyle>0) then DoCoachCorner(height,poseTimer,grade,takeoff,
                                                            Profile[actprofile].cstyle);
 
       dec(RTurns); { niit„ on yksi liikaa }

@@ -198,7 +198,7 @@ fields.
 | loop 1 | **Info screen.** Cycles hill record / top-5 / World Cup standings until a key. Setup menu reachable here. |
 | loop 2 | **On the bar.** Wind ticks, jumper idles, traffic light blinks; AI leaves on a random roll, player on the `K[2]` key. Bails out after 700 frames. |
 | loop 3 | **Inrun, takeoff, flight, landing.** One iteration = one displayed frame = 10 ms of simulated time. Ends when `Height = 0`. Every frame appends 5 bytes to the replay buffer. |
-| `SJ3.PAS:2106+` | **Scoring.** Distance from `matka`/profile geometry, five judge marks, crash roll, injury, hill-record check, profile stats, then results screens and the optional replay save. |
+| `SJ3.PAS:2106+` | **Scoring.** Distance from `distance`/profile geometry, five judge marks, crash roll, injury, hill-record check, profile stats, then results screens and the optional replay save. |
 
 ---
 
@@ -397,19 +397,25 @@ space the physics runs in.
 ### 7.1 Jump physics
 
 All of it is inline in `hyppy`, `SJ3.PAS:1663-2090`. There is no physics unit.
-State: `matka` (distance from takeoff), `kor` (height), `px`/`py` (velocity),
-`pl` (lift/glide), `t` (time), `kulma1` (body angle), `kulmas` (ski angle),
-`ssuunta` (ski-swing state machine 1-6).
+State: `distance` (from takeoff), `posY` (absolute height), `dropY` (drop below
+the takeoff edge), `height` (clearance above the hill), `px`/`py` (velocity),
+`lift` (glide), `t` (time), `bodyAngle`, `skiAngle`, and `skiSwing` (the
+ski-swing state machine, 1-6).
 
-- **Integration** — `1666` `matka := matka + (px*0.01)`; `1784` `t := t + 0.01`;
-  `1816` `kor := kor + (t*t*pl) - ((py-8)/100)`. Fixed 10 ms step, one step per
+These twelve confusable locals were renamed from Finnish; the rest of the
+codebase is still Finnish. `laskuri` was left alone deliberately - it is reused
+inside `hyppy` for three unrelated counters, so any specific English name would
+misdescribe two of them.
+
+- **Integration** — `1666` `distance := distance + (px*0.01)`; `1784` `t := t + 0.01`;
+  `1816` `posY := posY + (t*t*lift) - ((py-8)/100)`. Fixed 10 ms step, one step per
   rendered frame.
-- **Drag and wind** — `1774-1777`, the tuned `px`/`pl` update using
+- **Drag and wind** — `1774-1777`, the tuned `px`/`lift` update using
   `nsqrt(4*wind+245)`.
 - **Inrun acceleration** — `1958` `px := px * pxk` with `pxk = 1.016`, clamped
   to `maxspeed` (`ActHill.vxfinal`, +/-(startgate-15) in training).
-- **Takeoff** — `1967-1992`: `ponnistus` counts frames since the jump key;
-  16 is perfect; early/late sets `ssuunta` and penalises `pl`.
+- **Takeoff** — `1967-1992`: `takeoff` counts frames since the jump key;
+  16 is perfect; early/late sets `skiSwing` and penalises `lift`.
 - **Gusts** — `1783-1813`, probability from `Tuuli.windy` and `Tuuli.voim`.
 - **Scoring and crash risk** — `2091-2187`, with the tables in `SJ3TABLE.PAS`.
 - **AI** — `1712-1762`: `skill`/`reflex` derived from the jumper index,
@@ -425,7 +431,7 @@ State: `matka` (distance from takeoff), `kor` (height), `px`/`py` (velocity),
 - `MAKI.PAS:97` `Profiili(x)` — the terrain query, guarded to `0 < x < 1300`.
 - `SJ3.PAS:831` `MakiKulma(x)` — local slope as a finite difference over samples
   at x-5..x+9, zeroed in a 15-pixel window before `KeulaX`.
-- **Ground contact** — `SJ3.PAS:1907` `Height := Profiili(x) - round(kor)`, and
+- **Ground contact** — `SJ3.PAS:1907` `height := Profiili(x) - round(posY)`, and
   landing when `Height = 0` (`1920`). Collision is a per-column height test against a
   bitmap-derived profile, nothing more.
 - **Integrity check** — `SJ3UNIT.PAS:613-619` hashes `Profiili` over 1024
