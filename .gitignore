@@ -6,13 +6,17 @@
 /Pascal-SDL-2-Headers/
 
 # Generated at runtime
-SENDME.TXT
+/SENDME.TXT
 
-# Regenerated at startup from the .SJH files present.
-# CONFIG.SKI, HISCORE.SKI and PLAYERS.SKI are also rewritten on exit, but the
-# game halts at startup if they are missing, so they stay tracked. Restore them
-# with `git checkout -- '*.SKI'` after a test run.
-MOREHILL.SKI
+# Live player state, rewritten by the game every time it exits. Pristine copies
+# live in defaults/ and are installed by build.sh when these are missing, so a
+# fresh clone still starts (the game halts if any of them is absent).
+/CONFIG.SKI
+/HISCORE.SKI
+/PLAYERS.SKI
+
+# Regenerated at startup from the .SJH files present
+/MOREHILL.SKI
 
 # User-created hills, cups and replays (INTRO.SJR ships with the game)
 *.SJH

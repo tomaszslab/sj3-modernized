@@ -65,12 +65,23 @@ Compilation process on Ubuntu is following
 # Install compiler and SDL2
 $ sudo apt-get install fpc libsdl2-dev
 
+# Clone the headers, seed missing save files and compile
+$ ./build.sh
+```
+
+`build.sh` is a thin wrapper. The compile step on its own is:
+
+``` sh
 # Clone Pascal SDL2 headers
 $ git clone https://github.com/ev1313/Pascal-SDL-2-Headers
 
 # Compile in Turbo Pascal mode
 $ fpc -Mtp -Fu./Pascal-SDL-2-Headers/ SJ3.PAS
 ```
+
+`CONFIG.SKI`, `HISCORE.SKI` and `PLAYERS.SKI` hold player state and are
+rewritten every time the game exits, so they are not tracked. Pristine copies
+live in `defaults/` and `build.sh` installs any that are missing.
 
 You can find full instructions how to compile Pascal SDL2 applications
 from ["Free Pascal meets
