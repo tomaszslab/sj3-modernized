@@ -1,3 +1,9 @@
 *.o
 *.ppu
 /SJ3
+
+# SDL2 Pascal headers, cloned locally (see README)
+/Pascal-SDL-2-Headers/
+
+# Generated at runtime
+SENDME.TXT

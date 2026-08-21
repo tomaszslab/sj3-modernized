@@ -23,7 +23,7 @@ interface
 
 implementation
 
-  uses sdl2, getopts;
+  uses sdl2, getopts, math;
   const version: string = 'SP5';
         xRes = 320;
         yRes = 200;
@@ -146,6 +146,13 @@ begin
   swRendering := false;
 
   GetArguments;
+
+  { Free Pascal leaves the FPU exception mask open, so any invalid operation
+    performed internally by the video driver (Mesa/OpenGL in particular) is
+    trapped and re-raised as EInvalidOp, killing the process before the first
+    frame. Mask them; none of the game's own arithmetic relies on trapping. }
+  SetExceptionMask([exInvalidOp, exDenormalized, exZeroDivide,
+                    exOverflow, exUnderflow, exPrecision]);
 
   if SDL_Init( SDL_INIT_VIDEO or SDL_INIT_TIMER ) < 0 then HALT;
 
