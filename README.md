@@ -53,6 +53,7 @@ some buffer overflows have been fixed.
 | Command | Short |  Description |
 | --- | --- | --- |
 | --sw-rendering | -s | Enforce SW rendering |
+| --practice | -p | Skip the menus and start practising on the first hill |
 
 ## Build
 

@@ -4489,7 +4489,8 @@ begin
 
     eka := true;
 
-    nytmaki := selecthill(0,nytmaki);
+    { --practice keeps the same hill so a run is one command; see PracticeMode }
+    if (not SDLPort.PracticeMode) then nytmaki := selecthill(0,nytmaki);
 
     if (nytmaki=0) then cupslut := true;
 
@@ -4503,6 +4504,8 @@ begin
 
         eka := false;
       until (ch=#27) or (cupslut);
+
+    if (SDLPort.PracticeMode) then cupslut := true;
 
     ch := #1;
 
@@ -5760,7 +5763,8 @@ begin  { MAIN }
 
 { ResetHiscore(1); }
 
-  MainMenu;
+  if (SDLPort.PracticeMode) then training
+  else MainMenu;
 
 {  Valikko; }
 

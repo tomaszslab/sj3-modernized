@@ -74,6 +74,7 @@ Notes:
 
 | | |
 |---|---|
+| `./SJ3 --practice` | skip the menus, jump straight in on the first hill |
 | `./build.sh` | clone headers if missing, seed save files from `defaults/`, compile |
 | `./format.sh` | reformat all sources with ptop plus a cleanup pass |
 | `./tools/verify-codegen.sh` | print a hash of the emitted assembly |
@@ -83,10 +84,12 @@ Notes:
 `fpc -Mtp -a` and hashes the 14 emitted `.s` files; any change that is supposed
 to be behaviour-preserving must leave that hash alone. The current value is
 
-    368f333b9ec1a1d918858397d49a25377d451c52e0523f5396f4fe8afdb56a75
+    7a183f243b50a41eed470fa85bb2bbeb93037b53a55d7be2db8a4feef1b7d4e5
 
-and it has held across the dead-code removal and the reformatting, so the
-compiled program is bit-for-bit what it was at `6411942`.
+It held unchanged at `368f333b...` across the dead-code removal and the
+reformatting, proving those passes were pure no-ops. It moved deliberately when
+`--practice` was added, since that commit adds real code; the value above is the
+new baseline.
 
 It is not a formality. During the dead-code pass it caught two adjacent comment
 blocks being spliced together, which swallowed the live line between them:

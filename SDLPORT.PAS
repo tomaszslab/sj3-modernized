@@ -7,6 +7,7 @@ type TPalette = array[0..255,0..2] of byte;
 type TCloseCallback = procedure ;
 
 function GetVersion : string;
+function PracticeMode : boolean;
 
 procedure Init;
 procedure DeinitGraphics;
@@ -51,12 +52,13 @@ var windowMultiplier: integer;
   closeCallback: TCloseCallback;
 
   swRendering: boolean;
+  practiceRun: boolean;
 
 procedure GetArguments;
 
 var c : char;
   optionindex : Longint;
-  options : array[1..1] of TOption;
+  options : array[1..2] of TOption;
 
 begin
   with options[1] do
@@ -66,10 +68,17 @@ begin
       flag := nil;
       value := #0;
     end;
+  with options[2] do
+    begin
+      name := '--practice';
+      has_arg := 0;
+      flag := nil;
+      value := #0;
+    end;
   c := #0;
   optionindex := 0;
   repeat
-    c := getlongopts('s', @options[1], optionindex);
+    c := getlongopts('sp', @options[1], optionindex);
     case c of
       #0 :
            begin
@@ -77,8 +86,13 @@ begin
                begin
                  swRendering := true;
                end;
+             if (options[optionindex].name = '--practice') then
+               begin
+                 practiceRun := true;
+               end;
            end;
       's' : swRendering := true;
+      'p' : practiceRun := true;
     end; { case }
   until c=endofoptions;
 end;
@@ -145,6 +159,14 @@ begin
   GetVersion := version;
 end;
 
+{ Skip the menus and drop straight into practice on the first hill. Used when
+  iterating on the jump itself, so a run takes one command instead of a dozen
+  keypresses. Normal play is unaffected. }
+function PracticeMode: boolean;
+begin
+  PracticeMode := practiceRun;
+end;
+
 procedure Init;
 
 var rendererFlags : UInt32;
@@ -153,6 +175,7 @@ begin
   windowMultiplier := 2;
   aspect := aspectRes;
   swRendering := false;
+  practiceRun := false;
 
   GetArguments;
 
