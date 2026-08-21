@@ -201,8 +201,19 @@ begin
       rendererFlags := rendererFlags or SDL_RENDERER_SOFTWARE;
     end;
 
+  { Nearest-neighbour scaling. This is SDL's default, so the game already
+    looked right, but nothing said so: a host that sets the hint globally would
+    silently blur every pixel. Pin it before the renderer is created, which is
+    when the hint is read. }
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, '0');
+
   renderer := SDL_CreateRenderer(window, -1, rendererFlags);
   if renderer = nil then Halt;
+
+  { The game never fills the whole window - GetRenderRect letterboxes to keep
+    the aspect ratio - so the bars are painted with the clear colour. SDL does
+    not promise a particular default, so say black explicitly. }
+  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 
   // 8-bit surface for original data
   originalSurface := SDL_CreateRGBSurface(0, xRes, yRes, 8, 0, 0, 0, 0);

@@ -84,12 +84,12 @@ Notes:
 `fpc -Mtp -a` and hashes the 14 emitted `.s` files; any change that is supposed
 to be behaviour-preserving must leave that hash alone. The current value is
 
-    7a183f243b50a41eed470fa85bb2bbeb93037b53a55d7be2db8a4feef1b7d4e5
+    8b8ab111f5b6922c008bfeed580bb5742b6e1195fa36c317dfbf02911200176d
 
 It held unchanged at `368f333b...` across the dead-code removal and the
 reformatting, proving those passes were pure no-ops. It moved deliberately when
-`--practice` was added, since that commit adds real code; the value above is the
-new baseline.
+`--practice` was added, since that commit adds real code; it moves again for any commit that adds
+code, as the two render commits did. The value above is the current baseline.
 
 It is not a formality. During the dead-code pass it caught two adjacent comment
 blocks being spliced together, which swallowed the live line between them:
@@ -653,10 +653,10 @@ Each commit builds and runs on its own.
 
 **Milestone 1**
 
-8. **Declare nearest-neighbour scaling explicitly.**
+8. ~~**Declare nearest-neighbour scaling explicitly.**~~ Done.
    `SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, '0')` before creating the
    renderer. No visible change — turns an accidental default into a guarantee.
-9. **Set an explicit clear colour for the letterbox.**
+9. ~~**Set an explicit clear colour for the letterbox.**~~ Done.
    `SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255)` before `SDL_RenderClear`.
 10. **Snap the destination rect to an integer scale factor.** Rework
    `GetRenderRect` so that in square-pixel mode it computes
