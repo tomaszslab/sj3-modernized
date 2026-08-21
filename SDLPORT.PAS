@@ -88,7 +88,7 @@ begin
   if (elapsed >= frameIntervalMs) then
   begin
     lastFrameTick := nowMs;
-    subFrameCount += elapsed;
+    subFrameCount := subFrameCount + elapsed;
 
     while (subFrameCount >= frameIntervalMs) do
     begin
