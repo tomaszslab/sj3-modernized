@@ -7,3 +7,15 @@
 
 # Generated at runtime
 SENDME.TXT
+
+# Regenerated at startup from the .SJH files present.
+# CONFIG.SKI, HISCORE.SKI and PLAYERS.SKI are also rewritten on exit, but the
+# game halts at startup if they are missing, so they stay tracked. Restore them
+# with `git checkout -- '*.SKI'` after a test run.
+MOREHILL.SKI
+
+# User-created hills, cups and replays (INTRO.SJR ships with the game)
+*.SJH
+*.SJC
+*.SJR
+!INTRO.SJR
