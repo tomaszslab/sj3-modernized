@@ -2,7 +2,6 @@ Unit sj3lang;
 
 Interface
 
-{ procedure ResetLanguage; }
 procedure Init;
 procedure LoadLanguage(languageindex:byte);
 function lrstr(start,stop:integer):string;
@@ -15,7 +14,7 @@ var numlanguages : byte;
 
 Implementation
 
-uses {crt,}sj3help;
+uses sj3help;
 
 const NumStr = 599;
 

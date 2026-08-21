@@ -52,7 +52,6 @@ begin
   5 : begin tuulix:=268; tuuliy:=97; end;
   6 : begin tuulix:=268; tuuliy:=21; end;
   7 : begin tuulix:=150; tuuliy:=21; end;
-{  8 : begin tuulix:=7; tuuliy:=33; end; }
   8 : begin tuulix:=56; tuuliy:=33; end;
   end;
 
@@ -97,8 +96,6 @@ begin
  Siirra;
  value:=round(cos(pi*tkulma/180)*voim);
 
-{ value:=-10; }
-
 end;
 
 
@@ -106,12 +103,6 @@ procedure Piirra;
 var s:string;
  begin
 
-{
- tuulix:=10;
- tuuliy:=180;
- }
-
-{ fillbox(tuulix,tuuliy,tuulix+42,tuuliy+12,10); }
  fillbox(tuulix+4,tuuliy+1,tuulix+38,tuuliy+2,248);
 
  fillbox(tuulix+21,tuuliy+1,tuulix+21,tuuliy+2,240);

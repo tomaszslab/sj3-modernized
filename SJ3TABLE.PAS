@@ -21,8 +21,6 @@ begin
 
  temp:=25; { korkeus, jonka j„lkeen alastulo on aloitettava }
 
-{        temp:=35-MakiKulma(x) div 2; }
-
  case kulma of
   0..9  : temp:=50;
  10..20 : temp:=50;
@@ -103,14 +101,6 @@ begin
    3025..3037 : JumperAnim:=177;
    3038..3200 : JumperAnim:=164;
    3201       : KulmaLaskuri:=0;
-{
-   4000..4024 : JumperAnim:=173;
-   4025..4033 : JumperAnim:=178;
-   4034..4054 : JumperAnim:=173;
-   4055..4063 : JumperAnim:=178;
-   4064..4084 : JumperAnim:=173;
-   4085       : KulmaLaskuri:=0;
-   }
 
    end;
 
@@ -137,16 +127,12 @@ begin
  17..19 : value:=5;
  20..24 : value:=6;
  25..28 : value:=7;
-{ 29..32 : value:=9;
- 33..39 : value:=10; }
  29..33 : value:=8;
  34..39 : value:=9;
 
  40..48 : value:=10;
  49..64 : value:=11;
  65..90 : value:=12;
-
-{ 2..12 : value:=temp; }
  end;
 
  SuksiLaskussa:=value+71;
@@ -169,8 +155,6 @@ begin
      7..9  : value:=3;
     10..12 : value:=4;
     end;
-
-{   end; }
 
  LaskuAsento:=value+101;
 
@@ -232,18 +216,6 @@ begin
 
  value:=0;
 
-(*
- case (kulma1) of
-  50..59   : value:=1;
-  60..74   : value:=2;
-  75..89   : value:=3;
-  90..114  : value:=4;
- 115..139  : value:=5;
- 140..174  : value:=6;
- 175..1000 : value:=7;
- end; { ap }
-*)
-
  case (kulma1) of
   50..61   : value:=1;
   62..76   : value:=2;
@@ -281,20 +253,9 @@ begin
   136..175  : value:=4;
   176..215  : value:=5;
   216..257  : value:=6;
-
-{ 258..298  : value:=93;
- 299..340  : value:=94;
- 341..384  : value:=95;
- 385..429  : value:=96;
- 430..475  : value:=97;
- 476..1000 : value:=98; }
  end;
 
  SuksiLennossa:=value+71;
-
- (*
- SkiValues:=54;  { suora suksi v„liaikaisesti }
-  *)
 
 end;
 

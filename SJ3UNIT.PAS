@@ -46,15 +46,6 @@ type Stat_type = record
 
 
 
-{
-    Key_type = record
-    JUMP1, JUMP2,
-    RIGHT1, RIGHT2,
-    LEFT1, LEFT2,
-    TELE1, TELE2,
-    TWO1, TWO2 : char;
-    end;
-}
 
     Key_type = record
     A,B : char;
@@ -81,13 +72,6 @@ type Stat_type = record
      HRTime : TimeStr;
     end;
 
-(*
-    Hillrec = record
-     Name : NameStr;
-     Len  : integer;
-     Time : TimeStr;
-     end;
-*)
 
     Hiscore = record
      Name : NameStr;
@@ -107,7 +91,6 @@ type Stat_type = record
 var NumHills, Vcode : byte;
     NumExtraHills : word;
 
-{function getch(xx,yy:integer;bkcolor:byte):char;}
 procedure getch(xx,yy:integer;bkcolor:byte;var tempch,tempch2:char);
 function getstr(xx,yy,maxlength:integer;oldstr:string;bkcolor:byte):string;
 function getstr2(xx,yy,maxchars:integer;oldstr:string;bkcolor:byte):string;
@@ -123,7 +106,6 @@ procedure teamwarning;
 
 procedure newunregtext;
 
-{procedure mainmenutext(phase:byte;reg:boolean); }
 procedure mainmenutext(phase:byte;version:string);
 procedure unregendtext;
 procedure newregtext(regname,regnumber:string);
@@ -135,7 +117,6 @@ procedure resultbox(phase:byte;result:integer);
 
 function hillfile(nyt:integer):string;
 
-{ procedure WriteExtraHillHR(index:integer);}
 function fexist(filename:string):boolean;
 
 procedure CheckExtraHills;
@@ -151,7 +132,6 @@ function WindPlaceName(place:byte):string;
 procedure SetupItem(index,screen,entries:byte;str1:string);
 
 procedure HillMaker(phase:byte);
-{ procedure HillEditor(phase:byte); }
 
 procedure setgoals;
 function loadgoal(num:integer):integer;
@@ -198,22 +178,10 @@ function mightdelete(filestr:string):byte;
 
 procedure DoCoachCorner(height,kulmalaskuri:integer;grade,ponn,style:byte);
 
-{procedure DrawLumi(delx,dely,wind:integer;lmaara:word); }
 procedure DrawLumi(delx,dely,wind:integer;lmaara:word;draw:boolean);
 
 procedure makevcode(version:string;reg:boolean);
 
-(*
-function ReadKey : char { in lieu of Crt.ReadKey } ;
-*)
-
-(*
-procedure Textcolor(col:byte);
-procedure Textbackground(col:byte);
-procedure GotoXY(x,y:integer);
-procedure Window(x1,y1,x2,y2:integer);
-procedure clrscr;
-*)
 
 
 implementation
@@ -229,42 +197,6 @@ var HD : array[0..NumWCHills+MaxExtraHills] of ^Hillinfo_type;
     kri : array[0..NumWCHills+MaxExtraHills] of integer;
 *)
 
-(*
- function ReadKey : char { in lieu of Crt.ReadKey } ;
-  const Buff : char = #0 ; var R : Tregisters ;
-  begin
-    if Buff<>#0 then begin ReadKey := Buff ; Buff := #0 end else
-      with R do begin AH := 0 ; Intr($16, R) ;
-      if AL=0 then Buff := char(AH) ;
-      ReadKey := char(AL) end ;
-    end {ReadKey} ;
-*)
-
-(*
-
-function ReadKey : char ; assembler ; { ei extended }
-  asm
-   mov AH,00h;
-   int 16h
-  end {ReadKey};
-
-*)
-
-(*
-function ReadKey : char ; assembler ; { toimii melkein }
-  asm
-   mov AH,08h;
-   int 21h
-  end {ReadKey};
-*)
-
-  {
-procedure Textcolor(col:byte); begin end;
-procedure Textbackground(col:byte); begin end;
-procedure GotoXY(x,y:integer); begin end;
-procedure Window(x1,y1,x2,y2:integer); begin end;
-procedure clrscr; begin end;
-  }
 
 procedure makevcode(version:string;reg:boolean);
 var pos : byte;
@@ -317,7 +249,6 @@ begin
 
 end;
 
-{function givech(xx,yy:integer;bkcolor:byte):char;}
 procedure givech(xx,yy:integer;bkcolor:byte;var tempch,tempch2:char);
 var run : integer;
     col : byte;
@@ -343,13 +274,11 @@ begin
   fillbox(xx,yy+6,xx+4,yy+6,bkcolor);
   writefont(xx,yy,tempch);
 
-{ givech:=ch; }
 
 end;
 
 
 
-{function getch(xx,yy:integer;bkcolor:byte):char;}
 procedure getch(xx,yy:integer;bkcolor:byte;var tempch,tempch2:char);
 begin
 
@@ -359,7 +288,6 @@ begin
 
    DrawScreen;
 
-{  getch:=ch; }
 
 end;
 
@@ -393,8 +321,6 @@ begin
    #8 : delete(newstr,length(newstr),1);
 
    #13,#27 : out:=true;
-{
-   #32..#254 : if (cx+7 < maxlength) then newstr:=newstr+tempch; }
 
 {   '0'..'9','A'..'Z','','Ž','™',
    'a'..'z','†','„','”','.',',','#','!','(',')','-', }
@@ -442,8 +368,6 @@ begin
    #8 : delete(newstr,length(newstr),1);
 
    #13,#27 : out:=true;
-{
-   #32..#254 : if (cx+7 < maxlength) then newstr:=newstr+tempch; }
 
 {   '0'..'9','A'..'Z','','Ž','™',
    'a'..'z','†','„','”','.',',','#','!','(',')','-', }
@@ -628,18 +552,11 @@ end;
 procedure DrawLumi(delx,dely,wind:integer;lmaara:word;draw:boolean);
 begin
 
-{ temp:=(tuuli div abs(tuuli))*(random(abs(tuuli)) div 10);
-
- Lumi.Update(Video,128,(delx*2)+temp,dely*2); }
-
-{ Lmaara:=240;
-  tuuli:=-40; }
 
  if (LMaara>0) then Lumi.Update(Video,delx*2,dely*2,wind*8,draw);
 
 { writefont(1,192,txt(wind)); }
 
-{  if (LMaara>0) then Lumi.Update(Video,LMaara,delx*2,dely*2,tuuli); }
 
 end;
 
@@ -802,9 +719,7 @@ begin  { phase: 0 - DEL ei k„y, 1 - DEL k„y, 2 - 2 columns! DEL k„y }
  3,7 : putkeen:=true;
  end;
 
-{ if (phase=2) then cols:=2; }
 
-{ index:=1; }
 
  index:=abs(index);
  NormalizeIndex;
@@ -812,13 +727,6 @@ begin  { phase: 0 - DEL ei k„y, 1 - DEL k„y, 2 - 2 columns! DEL k„y }
   xx:=x-6;
   yy:=y-3+((index-1)*height);
 
-(*
-  if (index>tab) and (cols=2) then
-   begin
-    xx:=x+160-6;
-    yy:=y-3+((index-1-tab)*height);
-   end;
-*)
 
   boxcol:=240;
 
@@ -832,21 +740,15 @@ begin  { phase: 0 - DEL ei k„y, 1 - DEL k„y, 2 - 2 columns! DEL k„y }
   if (SDLPort.KeyPressed) then SDLPort.WaitForKeyPress(ch,ch2);
 
    case (ch2) of
-   #72,#75 :{  if (cols=2) and (tempch2=#75) and (index>tab) then dec(index,tab)
-             else }
-              begin
+   #72,#75 : begin
                if (index>1) then dec(index)
                             else index:=items+2;
                if (index=items+1) then dec(index); { skip v„li }
-              { boxcol:=32; }
               end;
-   #77,#80 :{ if (cols=2) and (tempch2=#77) then inc(index,tab)
-              else }
-             begin
+   #77,#80 : begin
               if (index<items+1) then inc(index)
                                  else index:=1;
               if (index=items+1) then inc(index); { skip v„li }
-             { boxcol:=32; }
              end;
    #59..#68 : begin
                index:=ord(ch2)-58;
@@ -891,15 +793,7 @@ begin  { phase: 0 - DEL ei k„y, 1 - DEL k„y, 2 - 2 columns! DEL k„y }
      out:=true;
     end;
 
-(*
-   if (index>tab) and (cols=2) then
-    begin
-     xx:=x+160-6;
-     yy:=y-3+((index-1-tab)*height);
-    end;
-*)
 
-{  inc(boxcol); if (boxcol>47) then boxcol:=16; }
 
   box(xx,yy,xx+length,yy+height,boxcol);
 
@@ -1143,9 +1037,6 @@ begin
   str1:='Unknown'
    else str1:=HD[nytmaki]^.name;
 
-(*
- if (nytmaki=0) then str1:='a Random Hill'; { ainakin koth }
- *)
 
  if (nytmaki=0) then str1:=lstr(155);
 
@@ -1245,7 +1136,6 @@ begin
     writeln(f1,l2);
    end;
 
-{  writeln(f1); }
 
   if (index=0) then { extra hill }
    begin
@@ -1641,14 +1531,12 @@ var temp : integer;
 begin
 
  leave2:=false;
-{ change:=false; }
  index2:=1;
  xx:=15;
  xx2:=120;
  yy:=20;
 
  oldhill:=h2;
-{ oldfile:=filestr; }
 
  repeat
 
@@ -1797,7 +1685,6 @@ begin
         str1:=getstr2(xx2,yy,8,filestr,242);
         if (str1<>'ÿ') then filestr:=str1;
 
-{        if (length(filestr)>8) then filestr:=copy(filestr,1,8); }
        end;
   12 : begin
         leave2:=true;
@@ -1880,7 +1767,6 @@ begin
   3 : begin
        str1:=getstr2(xx+130,yy,8,filename,242);
        if (str1<>'ÿ') then filename:=str1;
-{       if (length(filename)>8) then filename:=copy(filename,1,8); }
       end;
   4 : begin
        leave2:=true;
@@ -1941,7 +1827,6 @@ begin
   #8 : str1:='BACKSPACE';
   #9 : str1:='TAB';
 
-{ #13 : str1:='ENTER'; }
  ' ' : str1:='SPACE';
  '.' : str1:='.';
  ',' : str1:=',';
@@ -2087,71 +1972,6 @@ begin
 
 end;
 
-(*
-procedure HillEditor(phase:byte);
-var h : array[0..20] of hill_type;
-    filestr : string;
-    temp, index : integer;
-    str1 : string;
-    leave : boolean;
-    f1 : text;
-begin
-
- for temp:=1 to 20 do
-  LoadInfo(temp,h[temp]);
-
-  index:=1;
-
-  filestr:='NULL';
-
- repeat
-
-  NewScreen(5,0);
-
-  for temp:=1 to NumWCHills do
-   begin
-    fontcolor(246);
-    ewritefont(71,(temp-1)*8+10,txt(temp)+'.');
-    fontcolor(247);
-    str1:=copy(hillname(temp),1,6);
-     writefont(80+fontlen(str1),(temp-1)*8+10,'K'+txt(hillkr(temp)));
-    fontcolor(240);
-    writefont(75,(temp-1)*8+10,str1);
-   end;
-
-  inc(temp,2);
-   ewritefont(71,(temp-1)*8+10,'0.');
-   writefont(75,(temp-1)*8+10,'EXIT');
-
-  DrawScreen;
-
-  index:=MakeMenu(60,11,80,8,20,index,243,0,0);
-
-  if (index=0) then leave:=true
-               else edithill(h[index],filestr,false);
-
- until (leave);
-
- assign(f1,'HILLBASE.SKI');
- rewrite(f1);
-
- writeln(f1,'-HILLBASE.SKI- DO NOT ATTEMPT TO EDIT THIS FILE!');
-
- for temp:=1 to 20 do
-  begin
-
-   writehill(f1,h[temp],temp,0);
-
-  end;
-
-  writeln(f1,'*** End of Base File ***');
-
-  close(f1);
-
- leave:=false; index:=1; { ihan vaan kun se on ollut v„h„n sekaisin... }
-
-end;
-*)
 
 
 procedure CheckExtraHills;
@@ -2233,7 +2053,6 @@ begin
 end;
 
 
-{procedure chooselanguage; }
 
 
 
@@ -2360,20 +2179,6 @@ begin
     end;
   end;
 
-{       command:='/C DEL '+filestr+' > NUL:';
-       SwapVectors;
-        Exec(GetEnv('COMSPEC'),Command);
-       SwapVectors; }
-{       if (DosError <> 0) then
-        begin
-         fillbox(60,60,260,120,244);
-         writefont(80,70,'OK, THIS DELETE THING');
-         writefont(80,80,'IS A LITTLE STRANGE.');
-         writefont(80,90,'I GOT DOSERROR '+txt(doserror)+'.');
-         writefont(80,100,'PLEASE REPORT ME. THANKS.');
-         DrawScreen;
-         Readkey;
-        end; }
 
  clearchs;
 
@@ -2563,13 +2368,6 @@ end;
 function injured:shortint;
 var temp1 : shortint;
 begin
-{ v3.00 classified - top secret change!
- case random(4) of
- 0,1 : temp1:=0;
- 2   : temp1:=1;
- 3   : temp1:=random(4)+1;
- end;
-}
 
  case random(5) of
  0,1,2 : temp1:=0;
@@ -2580,7 +2378,6 @@ begin
 
  injured:=temp1;
 
-{ injured:=5; }
 
 end;
 
@@ -2635,7 +2432,6 @@ var tempboole : boolean;
 
 begin
 
-{ if (place=1) then yy:=191; }
 
  while SDLPort.KeyPressed do SDLPort.WaitForKeyPress(ch,ch2);
 
@@ -2812,7 +2608,6 @@ begin
  chk2 := str0[2];
  delete(str0,2,1);
 
-{ writeln('J„i: ',str0); }
 
  str1:='';
 
@@ -2847,7 +2642,6 @@ begin
 {    inc(word1,(ord(str0[index]))); }
 {   inc(word1,((ord(str0[index])-63)*((index mod 5)+41))); }
     inc(word1,((ord(str0[index]))*((index mod 5)+41)))
-{   write(index mod 5,':',ord(str0[index]),':',word1,', ');}
 
   end;
 
@@ -2872,7 +2666,6 @@ begin
    else inc(word1,3);
    end;
 
-{   write(index mod 5,':',ord(str0[index]),':',word1,', ');}
 
   end;
 
@@ -3009,12 +2802,6 @@ begin
  gotoxy(2,10);
  cwrite(8,'- You have been playing an '); cwrite(31,'UNREGISTERED');
  cwriteln(8,' version of SJ3.  ');
-{
- writeln('   To rule the Universe and register SJ2, send 50 FIM or 10$ USD to ');
- writeln('   Ville K”n”nen, Kalliopurontie 21 D 24, 02920 Espoo, Finland');
- write('   For an easier Internet registration or other details, see ');
- cwriteln(15,'REGISTER.TXT');
-}
 
  write('   Please do the right thing,');
  writeln(' register SJ3!  It''s cheap and easy, ');
@@ -3032,12 +2819,6 @@ begin
  textcolor(15);
  cwriteln(8,'   Thanks for all the support!!!');
  
-{ write('  This version is registered to: ');
- textcolor(15);
- writeln(sh(regname,25),' #',regnumber);
- cwriteln(8,'   Thanks a million for registering.  I wish all users were like you.');
- writeln('   (But if you''re not ',sh(regname,32),', you should be ashamed.)');
- }
  
 end;
 
@@ -3123,7 +2904,6 @@ begin
   3 : writeln('NSA, CIA, FBI, INTERPOL, SJ3 = ass-kicking action all the way');
   4 : writeln('Ski Jump International - for the love of flying since 1994');
   5 : writeln('"Only nuclear testing is more fun than SJ3" - J. Chirac');
-{  6 : writeln('"We tried to add SJ3 to our new mobile, but it was too cool" - J. Ollila'); }
   6 : writeln('"Our new phone had SJ3 in it and nobody used it for talking" - J. Ollila');
   7 : writeln('"Only exploiting Nigeria is more addictive than SJ3" - Shell Inc.');
   8 : writeln('"Only exploiting the Amazonas is more fun than SJ3" - Texaco');
@@ -3139,7 +2919,6 @@ begin
  18 : writeln('"I made SJ3 out of fertilizer and window cleaner" - MacGyver');
  19 : writeln('"Salt Lake City offered $700 000 in bribes to get into SJ3" - D. Pound');
  20 : writeln('"SJ3 played a key part in our struggle for independence" - X. Gusmao');
-{ 21 : writeln('"Only blind retributions are more fun than SJ3" - G. W. Bush '); }
  21 : writeln('"We''ll bomb and invade any nation that uses pirate SJ3''s!" - G.W.Bush');
  22 : writeln('Engineered with love and tradition from 1994 - SJ3');
  23 : writeln('VX ANTHRAX AK-47 NWO FNORD G-7 NSA SJ3 PGP PRISM BLANKET IRA PLUTONIUM');
@@ -3147,12 +2926,9 @@ begin
  25 : writeln('"SJ3 is banned in China for it''s pro-Tibetian views" - J. Zemin');
  26 : writeln('"SJ3 is the last beacon of free press in Russia" - V. Guzinsky');
  27 : writeln('SJ3 - no sex, no drugs, no violence - just the love of flying');
-{ 27 : writeln('"SJ3 is being investigated for terrorist links" - CIA'); }
-{ 28 : writeln('"SJ3 is a great comfort "- N. Chomsky & S. Sontag'); }
  28 : writeln('"I am still the greatest, but SJ3 is getting damn close" - M. Ali');
  29 : writeln('"I pity the fool who doesn''t play SJ3" - Mr.T');
  30 : writeln('S is for Serenity, J is for Joy and 3 is for ... a Free Palestine!');
-{ 31 : writeln('"I own 13 Uzis, 10 shotguns and one SJ3. Try to rob me now." - C. Heston'); }
  31 : writeln('"We didn''t join the Euro as we can buy SJ3 with any currency" - DK, SE & UK');
  32 : writeln('H2O, CO2, O2, SJ3 - stuff I can''t live without');
  33 : writeln('Sex, drugs & SJ3');
@@ -3163,7 +2939,6 @@ begin
  38 : writeln('"As soon as I own SJ3, it will start to love me too." - S. Berlusconi');
  39 : writeln('"I have never overstated anyones weapons or games.  SJ3 is god." - T. Blair');
  40 : writeln('"SJ3 inspired me to admit that we are illegal occupiers." - A. Sharon');
-{ 41 : writeln('"SJ3 is the only thing that separates us from animals.  Except SJ3." - H. Simpson'); }
 
   end;
 
@@ -3213,7 +2988,6 @@ begin
       #72 : if a>1 then dec(a);
       #71 : a:=1;
       #79 : a:=mmaara;
- {     ' ','+' : if ht[f]=1 then ht[f]:=0 else ht[f]:=1; }
      end;
 
      if (a<>b) then drawat(14,1,b,HD[b]^.Kr,HD[b]^.Name);

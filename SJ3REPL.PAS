@@ -31,8 +31,6 @@ var filenames : array[0..500] of string[12];
     RD : array[0..4,0..1000] of byte;
     mcliivi : boolean;
 
-{    TempVideo : EPtr; }
-
 
  procedure playreplay;
  var temp, JumperAnim, SkiAnim, hp : integer;
@@ -119,9 +117,6 @@ var filenames : array[0..500] of string[12];
               4 - thru once (speed change)
               5 - one step forward }
 
-{   LStyle:=Random(2)*Random(2);
-   LStyle:=1; }
-
    if (gdetail=1) then LMaara:=0;
 
    VieLmaara(Lmaara);
@@ -164,16 +159,6 @@ var filenames : array[0..500] of string[12];
      begin
 
       ch:=#1; ch2:=#1;
-
-{      temp:=0;
-
-      case mode of
-      1 : temp:=1;
-      2 : temp:=-1;
-      end;
-
-      X:=X+temp*(RD[0,RTurns]-128);
-      Y:=Y+temp*(RD[1,RTurns]-128); }
 
       if (intro) then
        case Rturns of
@@ -241,7 +226,6 @@ var filenames : array[0..500] of string[12];
         DrawAnim(150,30,69);
 {        DrawAnim(250,62,70); }
 
-{        temp:=mode;  }
 
        if (mode<>oldmode) then MuutaReplay(mode);
 
@@ -261,7 +245,6 @@ var filenames : array[0..500] of string[12];
          while (length(str1) < 3) do str1:='0'+str1;
          insert('.',str1,length(str1)-1);
 
-{    hp:=round(nsqrt((matka*matka)+(kkor*kkor))*acthill.pk*0.5)*5; }
         end;
 
        Fontcolor(247);
@@ -288,7 +271,6 @@ var filenames : array[0..500] of string[12];
      end;
 
      if (mode=3) then mode:=0;
-{     if (mode>3) then mode:=3; }
 
      OldMode:=mode;
 
@@ -315,8 +297,6 @@ var filenames : array[0..500] of string[12];
       end;
 
      case mode of
-{     1 : if (oldmode<>2) then inc(Rturns);
-      2 : if (oldmode<>1) then dec(Rturns); }
      1 : if (oldmode<>2) then inc(Place);
      2 : if (oldmode<>1) then inc(Place);
      end;
@@ -328,7 +308,6 @@ var filenames : array[0..500] of string[12];
      if (speed=0) then { custom speed }
       begin
        temp:=3;
-{       if (Rturns > FLStart) then temp:=3; }
        if (abs(Rturns-FlStart) < 40) or
           (abs(Rturns-FlStop) < 40) then temp:=2;
        if (abs(Rturns-FlStart) < 20) { or
@@ -488,19 +467,6 @@ end;
   DrawScreen;
  end;
 
-{
- procedure savedscreen;
- begin
-
-  move(mem[TempVideo:0],mem[Video:0],64000);
-  TakaisinAlkuosa(0);
-  SiirraStandardiPaletti;
-  SpecialMainPaletti;
-   AsetaPaletti;
-
- end;
-}
-
 begin
 
 if (start) then
@@ -530,12 +496,6 @@ if (start) then
 
    oldindex:=0;
 
-
-   {
-   Alloclarge(TempVideo,64000);
-   move(mem[Video:0],mem[TempVideo:0],64000);
-   TallennaAlkuosa(0);
-   }
 
    if (NumReplays>0) then
     begin
@@ -672,7 +632,6 @@ if (start) then
 
      end;
 
-  { freemem(TempVideo,64000); }
  end;
 
 end;

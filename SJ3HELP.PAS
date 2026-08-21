@@ -59,24 +59,6 @@ end;
 
 procedure beep(beeptapa:byte);
 begin
-(*
- sound(1000*beeptapa);
- delay(15);
- NoSound;
-*)
-
-(* ok - kotitekoinen
- sound(1000*beeptapa);
- GetTime(t1.Hour,t1.Minute,t1.Second,t1.Sec100);
- t2:=t1;
-
- repeat
-  GetTime(t1.Hour,t1.Minute,t1.Second,t1.Sec100);
-
- until (t1.Sec100 <> t2.Sec100);
-
- NoSound;
-*)
 
  sound(1000*beeptapa);
  wait(2);
@@ -168,7 +150,6 @@ end;
 function pcomp(score,sij:longint):longint;
 begin
  pcomp:=(score*51)+50-sij;
-{ pcomp:=score*51; }
 end;
 
 

@@ -10,14 +10,7 @@ type Res_type = record
 
 procedure Init;
 procedure ResetList(omat,kaikki,tyyli:integer;header:string;inv:boolean);
-{procedure ResetList(omat,kaikki,tyyli:integer;header:string); }
-
-{function wisekey(num:integer):integer; }
-{function wisekey(phase:byte):byte;}
-{procedure Entry(Pos, Who:integer; Name:string; Pts, Len1, Len2:integer;Extra:string); }
 function Entry(Num, Pos, Who:integer; Name:string; Pts:longint; Len1, Len2:integer;Extra:string):integer;
-
-{function whatnow(num:integer;state:byte):integer;}
 
 implementation
 
@@ -86,7 +79,6 @@ begin
 
  4 : begin   { king of the hill }
       columns:=1;
-{      plus:=pluspossibility; }
        plus:=8;
       color:=2;
       setcol3:=246; { ei turkoosia t„nne }
@@ -141,18 +133,15 @@ begin
   end;
 
  LastPos:=0;
-{ FirstEntry:=True; }
 
 end;
 
 
 procedure ResetList(omat,kaikki,tyyli:integer;header:string;inv:boolean);
-{procedure ResetList(omat,kaikki,tyyli:integer;header:string); }
 begin
 
  X:=0;
  Y:=startY;
-{ LastPos:=0; }
  OwnPlayers:=omat;
  Players:=kaikki;
  Phase:=tyyli;
@@ -239,11 +228,6 @@ begin
                case phase of
                 0 : status:=(page-1)*25;
                 1,4 : status:=(page-1)*22;
-(*                1 : case page of
-                    1 : status:=0;
-                    2 : status:=22;
-                    3 : status:=42; { ei tarvita, mutta olkoon }
-                    end; *)
                 2,3 : status:=(page-1)*44;
                 7 : status:=page-1;
                end; { case }
@@ -289,7 +273,6 @@ end;
 
 
 
-{procedure Entry(Pos, Who:integer; Name:string; Pts, Len1, Len2:integer;Extra:string); }
 function Entry(Num, Pos, Who:integer; Name:string; Pts:longint; Len1, Len2:integer;Extra:string):integer;
 
 var col1, col2, col3 : byte;
@@ -307,14 +290,6 @@ begin
    col3:=setcol3;
   end;
 
-{
- if (extra[1]='K') then
-  begin
-   col1:=setcol1;
-   col2:=setcol1;
-   col3:=setcol3;
-  end; }
-
  fontcolor(col1);
 
  status:=Num;
@@ -330,15 +305,6 @@ begin
     ewritefont(x+columnX[columns,1],y,txt(Pos)+'.');
 
    LastPos:=Pos;
-
-{     else
-      if (FirstEntry) then
-       begin
-        fontcolor(241);
-        ewritefont(x+columnX[columns,1],y,txt(Pos)+'.')
-       end; }
-
-{   FirstEntry:=False; }
 
    fontcolor(col1);
 

@@ -4,14 +4,11 @@ interface
 
 Procedure DrawScreen;
 Procedure DrawHillScreen;
-{procedure Splitscreen(korkeus:byte); }
 procedure CloseGraph;
 procedure Sprite(SpriteData:array of byte;X,Y:Word);
 procedure DrawAnim(x,y:integer;num:byte);
 procedure LoadAnim(filename:string);
 procedure PutPixel(x,y,c:integer);
-{procedure PutGPixel(x,y:integer;c:byte); }
-{function GetPixel(x,y:integer):byte; }
 function GetPixel(x,y:word):byte;
 
 procedure EWriteFont(xx,yy:integer;s:string);
@@ -28,7 +25,6 @@ procedure NewScreen(style,color:byte);
 procedure alertbox;
 procedure WriteVideo;
 
-{ procedure angle(x,y,a,b,c:integer); }
 
 function NumofAnims:byte;
 
@@ -83,27 +79,11 @@ begin
 
    Fillbox(0,0,319,199,0);
 
-{   DrawScreen; }
-
-{ LataaPCX('menu.pcx',320*200,0,0);
-  AsetaPaletti;
-  Move(mem[Graffa:0],mem[Video:0],64000); }
-
-
    case style of
-(*   0 : begin { main menu }
-        Fillbox(0,0,158,199,243);
-        Fillbox(160,0,319,118,244);
-        Fillbox(160,120,319,199,245);
-       end; *)
    1 : begin { highscores ym. }
         Fillbox(0,0,319,18,245);
         Fillbox(0,20,319,199,243);
        end;
-(*   2 : begin { valitsem„ki ym. }
-        Fillbox(0,0,78,199,244);
-        Fillbox(80,0,319,199,243);
-       end; *)
    2 : begin { valitsem„ki }
 {        Fillbox(0,0,19,199,245);
         Fillbox(21,0,298,199,243);
@@ -223,7 +203,6 @@ begin
  x:=x-AnimP[num,0];
  y:=y-AnimP[num,1];
 
-(*  xsize:=MemW[Anim[Num]:0]; { leveys } *)
  ysize:=0;
 
  if (num>0) and (num<=numanim) then
@@ -257,9 +236,6 @@ begin
  {$I+}
  FileOk(IOResult,filename);
 
-{ writeln;
- writeln('File opened.'); }
-
  NumAnim:=0;
 
  x:=ReadByte(f1);
@@ -269,8 +245,6 @@ begin
 
   inc(NumAnim);
 
-{  writeln(x,' ',y,' ',numanim); }
-
   setLength(Anim[NumAnim],x*y+4); { varataan tilaa spritelle }
 
   Anim[NumAnim][0]:=x;
@@ -278,8 +252,6 @@ begin
 
   Anim[NumAnim][2]:=y;
   Anim[NumAnim][3]:=y shr 8;
-
-{  writeln('info written.'); }
 
   for yy:=0 to y-1 do
    for xx:=0 to x-1 do
@@ -509,15 +481,6 @@ begin
 
      if (new>242) and (new<246) and (Anim[index][count+4] <> 0) then inc(new,5);
 
-{     inc(ax); if (ax>=19) then
-      begin
-       ax:=0;
-       inc(ay);
-       if (ay>=12) then ay:=0;
-      end; }
-
-{     inc(count); if (count>=19*12) then count:=0; }
-
      Video[scr]:=new;
 
    end;
@@ -525,23 +488,12 @@ begin
 end;
 
 
-(*
-procedure HLine(x,y:integer;length:word;col:byte);
-begin
-end;
-
-
-procedure Vline(x,y:integer;length:word;col:byte);
-begin
-end;
-*)
 procedure Fillbox(x,y,x2,y2:word;col:byte);
 var xx,yy : word;
 begin
    for yy:=y to y2 do
     for xx:=x to x2 do
      video[xx + yy shl 8 + yy shl 6]:=col;
-    {  mem[video:(yy*320)+xx]:=col; }
 
 end;
 
@@ -568,12 +520,6 @@ begin
   // Not needed in port
 end;
 
-(*
-procedure angle(x,y,a,b,c:integer);
-begin
- { ei skulaa, eik„ tule skulaamaan.  for compatibility }
-end;
-*)
 
 end. { end unit }
 

@@ -45,9 +45,7 @@ procedure welcomescreen(var languagenumber:byte);
 procedure WriteProfiles;
 procedure LoadProfiles;
 procedure ResetTops(kerroin:byte;Today:Date;Now:Time);
-{procedure loadcustomrecord(SetFile:string;var sortby:byte); }
 
-{procedure writecustomrecord(SetFile:string;sortby:byte); }
 
 function loadcustom(SetFile:string;var sortby:byte;
                     var HillOrder:array of integer;
@@ -476,71 +474,6 @@ var hill, y : integer;
  end;
 
 
-(*
- function loadcustom(filename:string):integer;
-  var result : byte;
-      nytmaki, temp1, temp2 : integer;
-      str1 : string;
-      ok : boolean;
-      f1 : text;
-  begin
-
-   {$I-}
-   assign(f1,filename);
-   reset(f1);
-   {$I+}
-   result:=1;
-
-   if (IOResult=0) then
-    begin
-     readln(f1,Cuphills);
-
-     temp1:=0;
-
-     repeat
-
-      readln(f1,nytmaki);
-
-      if (nytmaki>NumWChills) then
-       begin
-        nytmaki:=-1;
-        readln(f1,str1);
-        if (numextrahills>0) then
-         begin
-          for temp2:=1 to numextrahills do
-           if (hillfile(temp2) = str1) then nytmaki:=temp2+NumWChills;
-         end;
-       end;
-
-       if (nytmaki>0) then
-        begin
-         inc(temp1);
-         HillOrder[temp1]:=nytmaki;
-        end;
-
-      until (nytmaki=0);
-
-      {$I-}
-      readln(f1,temphi.name);
-      readln(f1,temphi.pos);
-      readln(f1,temphi.score);
-      readln(f1,temphi.time);
-      sortby:=0;
-      readln(f1,sortby); { v3.10:n SJC:ss„ t„t„ ei ole }
-      if (sortby<>1) then sortby:=0; { jos se lukee v3.10sjc:st„ mit„ sattuu }
-      {$I+}
-
-     close(f1);
-
-     CupHills:=temp1;
-     if (CupHills>0) then result:=0;
-
-    end;
-
-   LoadCustom:=result;
-
-  end;
-*)
 
  function selectload:byte; { palauttaa: 0 - ladattu, 1 - ei }
 
@@ -642,7 +575,6 @@ var hill, y : integer;
         leave2:=true;
         setfile:=filenames[actcustom];
         result:=0;
-        {if (Cuphills <= max) then inc(Cuphills);}
        end;
      end;
 
@@ -660,55 +592,6 @@ var hill, y : integer;
 
  end;
 
-(*
- function savecustom(filename:string):integer;
- var f1 : text;
-     temp2,result : integer;
-     code : longint;
-
- begin
-  result:=1;
-  {$I-}
-  assign(f1,filename+'.SJC');
-  rewrite(f1);
-  {$I+}
-  code:=0;
-
-  if (IOResult=0) then
-   begin
-    writeln(f1,CupHills);
-    inc(code,svaluestr(filename,11)*13+1);
-
-    for temp2:=1 to CupHills do
-     begin
-      writeln(f1,HillOrder[temp2]);
-      inc(code,hillcode(Hillorder[temp2]) mod 193557);
-      if (HillOrder[temp2] > NumWCHills) then writeln(f1,hillfile(HillOrder[temp2]-NumWCHills));
-     end;
-
-    code:=code xor (566727+sortby*2);
-
-    writeln(f1,'0');
-
-    defaulthi(temphi); { aina nollista }
-    writeln(f1,temphi.name);
-    writeln(f1,temphi.pos);
-    writeln(f1,temphi.score);
-    writeln(f1,temphi.time); { enkkatiedot v3.10 yhteensopivuutta varten }
-
-    inc(code,sortby);
-    writeln(f1,sortby);      { v3.11 lukee ne n„iden j„lkeen }
-    writeln(f1,code);
-    writeln(f1,'0');
-
-    close(f1);
-    result:=0;
-   end;
-
-  savecustom:=result;
-
- end;
-*)
 
 
  function saveset:integer; { palauttaa: 0 - save onnistui, 1 - ei }
@@ -809,7 +692,6 @@ var hill, y : integer;
 
    repeat
 
-{    if (CupHills <= max) then inc(CupHills); }
 
      repeat
 
@@ -839,7 +721,7 @@ var hill, y : integer;
       if ({(ch2=#80) or} (ch2=#77)) and (HillOrder[CupHills+1]<Hills) then inc(HillOrder[CupHills+1]);
       if (ch2=#73) and (HillOrder[CupHills+1]>5) then dec(HillOrder[CupHills+1],5);
       if (ch2=#81) and (HillOrder[CupHills+1]<Hills-5) then inc(HillOrder[CupHills+1],5);
-      if (ch2=#68) then begin { CupHills:=1; } ch:=#27; end;
+      if (ch2=#68) then begin ch:=#27; end;
       if ({(ch2=#83) or }(ch=#8) or (ch2=#72)) and (CupHills>0) then { delete }
        begin
         dohill(Cuphills+1,3);
@@ -871,7 +753,6 @@ var hill, y : integer;
 
     until (ch=#13) or (ch=#27) or (ch2=#80) or (ch=' ');
 
-{     if (ch=#27) then dec(CupHills); }
 
      if ((ch=' ') or (ch2=#80)) then
       begin
@@ -902,14 +783,6 @@ var hill, y : integer;
   end;
 
   if (CupHills=0) then HillOrder[1]:=1;
-(*
-   else
-    begin { t„„ on sit„ kun siirretyt taulukot alkaa nollasta }
-     for loop:=1 to CupHills do
-      HillOrder[loop-1]:=HillOrder[loop];
-
-    end;
-*)
 
 
 
@@ -980,12 +853,7 @@ begin
    end;
 
 
-(*
-  for temp:=1 to NumPl-pldiscount do
-    nimet[temp]:='Mieshmieshmieshmieshmieshmiesh '+txt(temp);
-*)
 
-{  nimet[NumPl+1]:='The Training Man'; }
 
    readln(f4,s); { tyhj„ rivi, ehk„ koodi }
 
@@ -1026,9 +894,6 @@ begin
      Halt;
     end;
 
-{  writeln(l1);
-   writeln(l2);
-   readln; }
 
 end;
 
@@ -1066,8 +931,6 @@ begin
   begin
    top[temp].name:=nimet[top[temp].pos]+'ÿ';
    top[temp].time:=dayandtime(Today,Now);
-{   top[temp].pos:=a*2-1; }
-{   top[temp].score:=((37-a)*(28-a))-(a*3); }
   end;
 
  for temp:=1 to NumWCHills do
@@ -1115,8 +978,6 @@ begin
  for temp:=31 to 35 do
   begin
    top[temp].name:=nimet[top[temp].pos]+'ÿ';
-{   top[temp].pos:=(round((a-31)*2)+(a-30))*kerroin; }
-{   top[temp].score:=(9999+500*31-a*500)*kerroin; }
    top[temp].time:=dayandtime(Today,Now);
   end;
 
@@ -1413,7 +1274,6 @@ begin
  xl:=x+18; if (xl>318) then xl:=318;
  y:=28;
 
-{ if (phase=1) then fillbox(x-3,y-2,xl+3,y+6,242); }
 
 {  fillbox(x-2,y-1,xl+2,y+5,242); }
 
@@ -1422,7 +1282,6 @@ begin
 
  inc(y,8);
 
-{ if (phase=2) then fillbox(x-2,y-1,xl+2,y+5,242); }
 
  fillbox(x+1,y+1,xl-1,y+3,231);
 
@@ -1449,16 +1308,6 @@ var temp, temp2, colx, x, y : integer;
    gety:=tempy;
   end;
 
-(*
- function getsnum(temp2:integer):integer;
-  var tempy : integer;
-  begin
-   tempy:=304+temp2;
-   if (temp2>6) then tempy:=303+temp2;
-   if (temp2=6) then tempy:=218;
-   getsnum:=tempy;
-  end;
-*)
 
 begin
 
@@ -1578,7 +1427,7 @@ if (index>0) and (index<=NumProfiles) then
 
 
 
- end;{ else emptyedit; }
+ end;
 
 
 
@@ -1664,12 +1513,7 @@ begin
  repeat
 
   fillbox(x-2,y-1,318,y+6,245);
-{  ok:=true; }
 
-{
-  for temp:=1 to numprofiles do
-   if (profile[temp].replace = value) and (temp<>index) and (value>0) then ok:=false;
-}
 
   fontcolor(240);
 
@@ -1696,7 +1540,6 @@ begin
   if (value<0) then value:=0;
   if (value>65) then value:=65;
 
-{  if (ch=#13) and (not ok) then ch:=#1; }
 
   until (ch=#13) or (ch=#27);
 
@@ -2032,15 +1875,7 @@ begin
          inc(pmaara);
          profileorder[pmaara]:=oldindex;
          doorder;
-        end;{ else
-         begin
-          alertbox;
-          writefont(80,90,lstr(47));
-          writefont(80,100,lstr(48));
-          drawscreen;
-          waitforkey;
-          doscreen;
-         end;}
+        end;
 
    end;
 
@@ -2247,7 +2082,6 @@ begin
   laskuri:=0;
 
   laskuri:=svaluestr(str1,11);
-{  writeln(f2,laskuri); }
 
  for apu1:=1 to 20 do
   begin
@@ -2293,7 +2127,7 @@ begin
 
      apu2:=HRLen(apu1);
 
-    end; { else writeln(f2); }
+    end;
 
    inc(ahi,longint(apu2)); { eli lis„t„„n joko omalla enkalla tai kriittisell„ }
 
@@ -2311,10 +2145,6 @@ begin
 
   writehead(3);
 
-{
-  writeln(f2,'ahi: ',ahi);
-  writeln(f2,'laskuri: ',laskuri);
-}
   ahi:=round((ahi/laskuri)*10000);
   str1:=txt(ahi); insert('.',str1,length(str1)-1); str1:=str1+' %';
 
@@ -2407,7 +2237,7 @@ begin
 
 {     inc(l,svaluestr(txt(MEpituus[a]),a*2+2)); }
 
-      end; { else writeln(f2); }
+      end;
 
     end;
 
@@ -2496,9 +2326,6 @@ begin
      AsetaPaletti;
     WriteVideo;
 
-(*
-    StartSuit; { lataa ne hyppypukujen v„rit 190-200... }
-*)
   fontcolor(240);
   writefont(170,51,lstr(34));
   fontcolor(241);
@@ -2511,13 +2338,6 @@ begin
    ewritefont(x+12,y,txt(temp)+'.');
    writefont(x+20,y,nimet[NumPl+1-temp]);
 
-(*
-   if (reg) then
-    begin
-     fillbox(302,y,312,y+6,209+haalarit[temp]);
-     fillbox(303,y+1,311,y+5,202+haalarit[temp]);
-    end;
-*)
 
   end;
 

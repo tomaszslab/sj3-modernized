@@ -17,9 +17,6 @@ IMPLEMENTATION
 const SineLgt=512;   { t„ytyy olla 2^n }
       TaustaMin=64;  { taustakuvan v„rit }
       TaustaMax=215; {  }
-(*      PerusG=600;    { nopeus, jolla hiutaleet putoaa }
-      GVaihtelu=300; { putoamisnopeuden vaihtelu }
-      SivuLiike=50; { sivuttaisliikkeen suuruus }         *)
 
 
 type tLumi=record
@@ -35,7 +32,10 @@ type tLumi=record
 
 var  LH:array[0..LumiMax-1] of tLumi;
      Sine:Array[0..SineLgt] of longint;
-     Max, PerusG, Gvaihtelu, SivuLiike : word;
+     Max : word;
+     PerusG : word;    { nopeus, jolla hiutaleet putoaa }
+     GVaihtelu : word; { putoamisnopeuden vaihtelu }
+     SivuLiike : word; { sivuttaisliikkeen suuruus }
      Sleet : boolean;
 
 
@@ -96,8 +96,6 @@ begin for i:=0 to SineLgt do Sine[i]:=Round(sin(i*pi*2/SineLgt)*SivuLiike);
           C1:=GetColor;
           C2:=GetColor;
          end;
-{     PerusG:=600;
-      Max:=0; }
 end;
 
 

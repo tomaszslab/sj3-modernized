@@ -119,23 +119,13 @@ begin
      LinjanPituus[Y]:=X+1;
   end;
 
-(*          for Y:=0 to Maki.YSize-1 do
-           begin
-            for X:=0 to Maki.XSize-1 do
-             begin
-              LinjanPituus[Y]:=X;
-               if (Lue((Y*Maki.XSize)+X)=0) then X:=Maki.XSize-1; { ULOS }
-             end;
-           end;  *)
-
  for X:=0 to Maki.XSize-1 do
   begin
    for Y:=0 to Maki.YSize-1 do
     begin
      ProfiiliY[X]:=Y;
 
-     if (LinjanPituus[Y]>X) then Y:=Maki.YSize-1;
-{    if (Lue((Y*Maki.XSize)+X)<>0) then Y:=Maki.YSize-1; } { ULOS }
+     if (LinjanPituus[Y]>X) then Y:=Maki.YSize-1; { ULOS }
     end;
   end;
 
@@ -168,14 +158,6 @@ begin
     begin
      if (hp<kr*10) then c:=238 else c:=239;
 
-{     Paikka:=LongInt((ProfiiliY[X]*Maki.XSize)+X);
-     Kirjoita(paikka,Random(256)); }
-
-{     Kirjoita(190*Maki.XSize+X,1); }
-
-{     for Y:=0 to 4 do
-      Kirjoita(((ProfiiliY[X]+(2*Y)+X mod 2)*Maki.XSize)+X,c); }
-
      for Y:=0 to 2 do
       Kirjoita(((ProfiiliY[X]+Y+1)*Maki.XSize)+X,c);
 
@@ -186,22 +168,6 @@ begin
 
 
 end;
-
-
-(*
-
-procedure LaskeLinjat;
-{ linjojen pituudet voisi ladata nopeammin levylt„ ... }
-var       Y,X,X2:LongInt;
-begin     for Y:=0 to Maki.YSize-1 do begin
-              LinjanPituus[Y]:=0;
-              for X:=1 to Maki.XSize-1 do
-                  if(Lue((Y*Maki.XSize)+X)<>0) then
-                      LinjanPituus[Y]:=X+1;
-              end;
-          end;
-
-*)
 
 
   function  Alusta:Boolean;

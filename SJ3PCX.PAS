@@ -15,7 +15,6 @@ procedure TallennaAlkuosa(alue:byte);
 procedure TakaisinAlkuosa(alue:byte);
 procedure LoadSkis(col,phase:byte);
 procedure LoadSuit(col,phase:byte);
-{procedure startsuit;}
 
 const NumSkis = 4;
       NumSuits = 8;
@@ -151,23 +150,6 @@ begin
 
 end;
 
-(*
-procedure KorostaTeksti(phase:byte);
-var temp1, temp2 : integer;
-begin
-
- for temp1:=0 to 223 do
-  for temp2:=0 to 2 do
-   begin
-    Paletti[temp1,temp2]:=Paletti[temp1,temp2]-;
-    if (Paletti[temp1,temp2] > 63) then Paletti[temp1,temp2]:=63;
-   end;
-
-
-
-end;
-*)
-
 procedure MuutaReplay(mode:byte);
 var temp, temp2, col : byte;
 begin
@@ -178,7 +160,6 @@ begin
  1   : col:=250;
  2   : col:=253;
  4   : col:=251;
-{ 5   : col:=252; }
  end;
 
  for temp:=249 to 253 do
@@ -274,24 +255,6 @@ begin
   end;
 
 end;
-
-(*
-procedure startsuit;
-var temp : integer;
-    tempb : byte;
-begin
-
- for tempb:=0 to 6 do
-  begin
-   LoadSuit(tempb,0);
-   for temp:=0 to 2 do Paletti[209+tempb,temp]:=Paletti[216,temp];
-   for temp:=0 to 2 do Paletti[202+tempb,temp]:=Paletti[218,temp];
-  end;
-
- AsetaPaletti;
-
-end;
-*)
 
 procedure SpecialMainPaletti;
 begin

@@ -29,11 +29,11 @@ var
  Stats : array [0..15,0..NumWCHills] of Stat_type;
  CStats : array[0..2,1..NumPl+1] of integer;
 
-{ ex,  ok, }eka,treeni : boolean;
+eka,treeni : boolean;
  compactlist, comphrs : boolean;
  diff,diffwc,lct, InvBack, beeppi, goals, kosystem : boolean;
 
- trainrounds, windplace{,skipquali} : byte;
+ trainrounds, windplace : byte;
 
  sija, qual, inj : array [0..NumPl+1] of byte;
 
@@ -49,10 +49,6 @@ var
 
   K : array[0..5] of word;
 
-(*
- haalarit : array[0..MaxOwnPl] of byte;
- sukset : array[0..MaxOwnPl] of byte; { profileen... }
-*)
 
  osakilpailu,kierros,startgate : integer;
 
@@ -187,8 +183,6 @@ begin
     begin
      writeln(f2,profileorder[temp]);
 
-{     writeln(f2,nimet[NumPl+1-temp]);
-     writeln(f2,haalarit[temp]); }
     end;
 
    if (kothwind) then temp:=1 else temp:=0;
@@ -209,14 +203,6 @@ begin
 
     for temp:=1 to 2 do
      writeln(f2,'0');
-(*
-   writeln(f2,integer(BackGrSound));
-   writeln(f2,integer(SBSounds));
-   writeln(f2,SoundBankNumber);
-
-   writeln(f2,BaseIO);
-   writeln(f2,IRQ);
-   writeln(f2,DMA); *)
 
   close(f2);
 
@@ -307,7 +293,6 @@ begin
   for temp:=1 to 41 do  { 20 World Cup, 10 Team Cupia, 5 4hillsia ja 6 Kothia }
    begin
     readln(f1,top[temp].name);
-{    topnimet[a]:=cryptstr(topnimet[a]); }
      inc(l1,valuestr(top[temp].name,temp));
     readln(f1,str1);
      inc(l2,valuestr(str1,temp));
@@ -346,12 +331,6 @@ begin
      SetHRInfo(temp,name,len,time);
     end;
 
-{   writeln(l5);
-   writeln(valuestr(s,22));
-   readln;                  }
-{   writeln('L1',l1,' -  ',l3);
-   writeln('L2',l2,'  -  ',l4);
-   readln; }
 
    vcode:=0;
    {$I-} readln(f1,vcode); {$I+}
@@ -471,19 +450,6 @@ begin
 
   readln(f2,windplace);
 
-{  for temp:=1 to 6 do
-   readln(f2,str1); }
-
-(* readln(f2,temp);
-    BackGrSound:=boolean(temp);
-   readln(f2,temp);
-    SBSounds:=boolean(temp);
-
-   readln(f2,SoundBankNumber);
-
-   readln(f2,BaseIO);
-   readln(f2,IRQ);
-   readln(f2,DMA); *)
 
   close(f2);
 
@@ -547,8 +513,6 @@ begin
         1 : if (languagenumber<255) then str1:=lnames[languagenumber]
                                     else str1:='Undecided';
 
-{        2 : if (coachstyle>0) then str1:=lstr(361+coachstyle*40)
-                              else str1:=lstr(9); }
         2 : if (beeppi) then str1:=lstr(6) else str1:=lstr(7);
         3 : str1:=lstr(13+gdetail);
         4 : begin
@@ -566,7 +530,6 @@ begin
                end;
             end;
 
-{        6 : str1:=teamnumber; }
         end;
 
     2 : case temp of
@@ -577,7 +540,6 @@ begin
         4 : if (diffwc) then str1:=lstr(181) else str1:=lstr(186);
         5 : if (compactlist) then str1:=lstr(182) else str1:=lstr(187);
         6 : if (InvBack) then str1:=lstr(183) else str1:=lstr(188);
-{        6 : if (preview1) then str1:=lstr(181) else str1:=lstr(185); }
         7 : if (automatichrr) then str1:=lstr(182) else str1:=lstr(185);
 
         8 : if (goals) then str1:=lstr(180) else str1:=lstr(186);
@@ -627,7 +589,6 @@ begin
         0     : Out:=true;
         end;
 
-{        index[screen]:=1; }
 
        end;
    1 : case index[screen] of
@@ -719,12 +680,6 @@ begin
            end;
        0 : screen:=0;
        end;
-(*
-     A : begin
-            clrwhole(0);
-            SoundSetup(BaseIO,IRQ,DMA,SoundBankNumber,SBSounds,BackGrSound,reg);
-           end;
-*)
 
     end;  { screen case }
 
@@ -766,7 +721,6 @@ var { SoundOn : array[0..5] of boolean; }
     tempb : byte;
     temp,temp2 : integer;
 
-{   ch,ch2 : char; } { for #0 }
 
     statsvictim : integer;
 
@@ -1127,12 +1081,9 @@ begin
    LMaara:=Random(2)*Random(256);
    if (Lmaara>0) and (Lmaara<40) then Lmaara:=41+random(150);
    if (Lmaara>0) and (random(4)=0) then inc(Lmaara,1000); { r„nt„ }
-{   Lmaara:=1151; }
 
    VieLmaara(Lmaara);
 
-{   LStyle:=Random(2)*Random(2);
-   LStyle:=1; }
 
    if (gdetail=1) then LMaara:=0;
 
@@ -1207,17 +1158,8 @@ begin
 {  AsetaPaletti; }
 
 
-(*
-  if (koth) then draw:=true; { KYSEENALAINEN! }
-*)
-
-{  draw:=true;
-   cjumper:=true; }
 
 
-(*
-  if (not cjumper) and (jcup) then statsvictim:=index+((pel-1)*4); { toivottavasti tekee saman }
-*)
                              { NumPl+1-pel+4*(team-1) }
   temp:=random(80);   { 120 }
   dec(temp,random(24*pel)); { 34,32, 30, 25,20, 13 ennen muutosta }
@@ -1230,14 +1172,10 @@ begin
   if (skill>16) then skill:=16;
 
   reflex:=round((34+pel+random(10))/5);
-{  reflex:=round((33+pel+random(8))/4); }
-{  reflex:=round((45+pel+random(10))/5); }
-{  reflex:=round((30+1+random(30))/5); }
 
   { floppihyppy }
   if (random(300-pel)=0) then skill:=17+random(3+pel div 25);
 
-{  skill:=16; }
 
    GetNow(Now); { haetaan current time }
 
@@ -1253,9 +1191,7 @@ begin
  pl:=acthill.plsave;  { plsave on m„enparametreja }
  maxspeed:=acthill.vxfinal; { n„in voidaan lavaa vaihtaa... }
 
-{ pl:=0.34;  temps }
 
-{ vxfinal:=150;  lopullinen nopeus pit„is olla GLOBAL tai jotain }
 
   tyylip[1]:=195;  { ennen 200, v3.0 195 }
   tyylip[6]:=200;
@@ -1301,13 +1237,9 @@ begin
 
   y:=round(kor);
 
-(*
-  qy:=-Profiili(KeulaX);  { x & y kompensaatteja n„ytt”„ varten }
-  *)
 
   ponnistus:=0; Out:=False; Ok:=True;  { OK to be used w/ ei ponnistanut }
   height:=0; { „ij„n korkeus m„est„ }
-(*  fheight:=0; { edellinen korkeus } *)
   for temp:=0 to 5 do DeltaH[temp]:=0;
   riski:=0; { kaatumisriski }
 
@@ -1326,29 +1258,17 @@ begin
   t:=0;  { aika }
 
   kulma1:=0; { Žij„n kropan kulma }
- { kulmas:=900; } { Suksien kulma }
   kulmas:=0; { Suksien kulma }
 
   ssuunta:=0;  { sukset eiv„t liiku mihink„„n }
 
   replayname:='?'; replayfilename:='TEMP';
 
-{ temp:=1; temp2:=0; }
 
 
 
-{  Port[$3c8]:=15; Port[$3c9]:=63; Port[$3c9]:=33; port[$3c9]:=33; }
-
-{  x:=round(matka)+qx;
-   y:=Profiili(x); }
 
 
-{  fillbox(0,9,319,16,10);
-
-  for a:=0 to 11 do
-   drawanim(10+a*20,20,a+87);
-
-  writefont(1,10,1,'Ville Juhana K”n”nen 118.3 (165.5«)'); }
 
 {  writefont(1,10,1,'ABCDEFGHIJKLMNOPQRSTUVXYZŽ™1234567890«"().:,''#*-+?!'); }
 
@@ -1360,10 +1280,6 @@ begin
 
   namestr:=nimet[pel];
 
-(*
-  if (jcup) then namestr:=nimet[NumPl+1-statsvictim]
-   else if (treeni) then namestr:=nimet[NumPl+1];
-*)
 
   str1:=namestr;
 
@@ -1395,7 +1311,6 @@ begin
 
 {  DrawScreen; }
 
-{  cupslut:=waitforkey3(180,ch); }
 
   DeltaX:=Maki.X;
   DeltaY:=Maki.Y;
@@ -1406,7 +1321,6 @@ begin
 
  AsetaPaletti;
 
-{ Tuulisafe:=Tuuli.value; }
 
  Tuuli.Hae;
 
@@ -1463,9 +1377,7 @@ begin
    if (jcup) then temp:=team;
     DrawInfo(laskuri, index, temp);
 
-{   if (ex) then  balk(0); }
 
-{    if (ex) then  balk(1); }
 
    DrawScreen;
 
@@ -1500,13 +1412,6 @@ begin
 
   if (treeni) then maxspeed:=maxspeed+(startgate-15);
 
-(*
-  if (keypressed) then
-   begin
-    ch:=readkey;
-    if (ch=#0) then if (readkey=#68) then begin cupslut:=true; ch:=#27; end;
-   end;
-*)
 
   laskuri:=0;  { t„t„ ehk„ k„ytet„„n laskurina seuraavassa }
   Out:=false;
@@ -1539,7 +1444,6 @@ begin
 
 {   PutPixel(KeulaX-Maki.X,Profiili(KeulaX)-Maki.Y,15); }
 
-{   tempb:=SuksiAnim(x); }
 
    if (kulmalaskuri>3024) and (kulmalaskuri<4000) then
     begin
@@ -1573,11 +1477,8 @@ begin
     Writefont(x-Maki.X+15,y-Maki.Y-15,txt(statsvictim)); }
 {    Writefont(x-Maki.X+15,y-Maki.Y-15,txt(index)); }
 
-{  if (cjumper) then ewritefont(308,9,'(C)'); }
   if (cjumper) then writefont(x-Maki.X,y-Maki.Y-20,'C');
 
-{  if (cjumper) and (laskuri mod 40 < 20) then
-    ewritefont(308,9,'(COMPUTER)'); }
 
   if (windplace>10) then Tuuli.Tuo(x-Maki.X,y-Maki.Y);
 
@@ -1585,11 +1486,9 @@ begin
 
   if (eka) and (osakilpailu=1) and (not cjumper) then drawkeymap;
 
-{  if (ex) then balk(0); }
 
  {    inc(Rturns); }
 
-{  if (ex) then balk(1); }
 
   DrawScreen;
 
@@ -1656,7 +1555,6 @@ begin
 
   Out:=False;
 
-{  temp:=67; }
 
   laskuri:=0;
   px:=0;
@@ -1667,7 +1565,6 @@ begin
    ch:=#0;
   end;
 
-{  pl:=0.10; }
 
  if (cjumper) and (not draw) then { nopeutetaan v„h„n :) }
   begin
@@ -1677,7 +1574,6 @@ begin
   end;
 
   kulmalaskuri:=200;
-{  reflexlaskuri:=0; }
 {
  writefont(100,100,'ch: '+txt(byte(ch)));
  writefont(100,110,'m: '+txt(round(matka)));
@@ -1690,7 +1586,6 @@ begin
 
    Tuuli.Hae;
 
-{   tuuli:=-10; }
 
    matka:=matka+(px*0.01);
 
@@ -1707,7 +1602,6 @@ begin
        SDLPort.WaitForKeyPress(ch,ch2);
        ch:=upcase(ch);
 
-{       if (cjumper) then ch:=#1; }
 
        if (ch=#0) and (ch2=#68) then
         begin
@@ -1735,10 +1629,6 @@ begin
       end;
 
 
-{       if (ch='q') then kulma1:=49;
-        if (ch='w') then kulma1:=51; }
-
-{     if (matka=0) then beep(5); }
 
     if (matka>=0) then  { matka => 0 eli kun matka=0 ollaan jo lennossa }
      begin
@@ -1746,7 +1636,6 @@ begin
       inc(laskuri);
 
       if (kulma1<kulmalaskuri) then kulmalaskuri:=kulma1;
-{      if (LentoAnim(kulma1) > 107) and (landing=0) then inc(reflexlaskuri); }
 
       if (cjumper) then
        begin
@@ -1766,8 +1655,6 @@ begin
           WriteFont(280,80,'T-H'+txt(temp-height));
           Writefont(250,90,'C'+txt(clanding)+' L'+txt(landing)); }
 
-{           DrawScreen;
-           ch:=readkey; }
 
          { kumpualastulovarmistus! }
         if (landing=0) and (matka>3) and (height<4) then begin { beep(2); } landing:=2; end;
@@ -1784,15 +1671,12 @@ begin
 
        end; { if (cjumper) }
 
-{       if (upcase(ch)='T') then Landing:=1;
-       if (upcase(ch)='R') then Landing:=2; }
        if (kword(ch,ch2)=K[4]) then Landing:=1;
        if (kword(ch,ch2)=K[5]) then Landing:=2;
 
        if (kword(ch,ch2)=K[3]) and (kulma1<=600) then kulma1:=kulma1+round(kulma1/4);
        if (kword(ch,ch2)=K[2]) and (Landing=0) and (kulma1>0) then kulma1:=kulma1-round(kulma1/5);
 
-{       if (ch='x') then pl:=0.1; }
 
         { ylirotaatio }
        if (kulma1<50) then begin pl:=pl+0.0001-((kulma1-50)/18000); {beep(1);} end;
@@ -1913,7 +1797,6 @@ begin
       if (OK) then  { alkukulma... RUN ONCE (OK) }
        begin
         kulma1:=158; OK:=False;
-        {  kulma1:=52; }
 
         if (ponnistus<16) then ssuunta:=1; { ponn liian my”h„„n - k„rjet yl”s}
         if (ponnistus>16) then ssuunta:=4; { ponn liian aikaisin - k„rjet alas }
@@ -1933,7 +1816,6 @@ begin
 
       if (Height<6) { and (kulmas>-10) } and (matka>20) then
        begin  { j„nnitt„v„ m„en ennakointi! }
-(*        ssuunta:=2; { suunta varmasti alas - lopettaa nollaan } *)
         if (kulmas=0) then ssuunta:=0; { meik„ m„„r„„ varmasti asennon }
         SkiAnim:=SuksiLaskussa(MakiKulma(x) div (Height+1));
        end
@@ -1955,7 +1837,6 @@ begin
        If (kword(ch,ch2)=K[1]) and (matka>-40) and (ponnistus=0) then
         begin
          inc(Ponnistus);
-         { SoundOn[1]:=StartSound(Sound[1],1,False);}
         end;
 
        { Automaattiponnistus }
@@ -1987,7 +1868,6 @@ begin
          { ponnistuslis„ys }
          px:=px+0.21;
          py:=py+1.21;
-         { pl:=pl-(5*0.01); }
          kulma1:=kulma1+12;
 
         if (ponnistus>16) then { Ponnistus liian aikaisin }
@@ -2045,7 +1925,6 @@ begin
 
 {   PutPixel(KeulaX-Maki.X,Profiili(KeulaX)-Maki.Y,15); }
 
-{   tempb:=SuksiAnim(x); }
 
 {   Lumi.Update(Video,128,(DeltaX-Maki.X)*2,(DeltaY-Maki.Y)*2); }
 
@@ -2064,18 +1943,11 @@ begin
 {   Writefont(x-Maki.X,y-Maki.Y-20,txt(makikulma(x))); }
 {   Writefont(x-Maki.X,y-Maki.Y-20,txtp(hp)); }
 
-{   if (ponnistus>0) then
-     begin
-      Writefont(x-Maki.X,y-Maki.Y-40,txt(ponnistus));
-      Writefont(x-Maki.X+30,y-Maki.Y-40,txt(kulmas));
-     end;
-}
 
     if (windplace>10) then Tuuli.Tuo(x-Maki.X,y-Maki.Y);
 
     Tuuli.Piirra;
 
-{    if (ex) then balk(0); }
 
      RD[0,RTurns]:=byte(128+x-fx);
      RD[1,RTurns]:=byte(128+y-fy);
@@ -2086,27 +1958,16 @@ begin
 
      inc(RTurns);
 
-{    if (ex) then balk(1); }
 
-{   if (matka>0) then writefont(10,10,1,'!'); }
 
     DrawScreen;
 
-{    if (matka<0) then delay(500); }
 
-{  if (ponnistus>0) then ch:=readkey;
 
-   if (ch=#13) then out:=true; }
 
-{  if (matka>-5) then ch:=readkey; }
-
-{  if (height<8) and (matka>=0) then ch:=readkey; }
 
   end; { if draw }
 
-(*
-   if (x>1015) then begin draw:=false; out:=true; end; { lent„„ ulos ruudusta u nou }
-*)
 
   until (Out);   { ***  LENTO LOPPUU  *** }
 
@@ -2139,9 +2000,7 @@ begin
 
       if (height<63) then riski:=round(riski*(1+((63-height)*0.075)));
 
-{      laskuri:=round(2.5*sqr(sqr(sqr(sqr(sqr(((hp/10)/kr))))))+((hp/10)/kr*2)-1); }
 
-{     riski:=10 * riski; }
 
       if (landing=0) or (height < 56) then
        begin
@@ -2205,16 +2064,12 @@ begin
 
       if (kupat>0) then inj[pel]:=injured; { LOUKKAANTUMINEN!!! }
 
-{    if (kupat=1) then inj[pel]:=1;
-    if (kupat=2) then inj[pel]:=3;
-     if (kupat=3) then inj[pel]:=6; }
 
       score:=0;
 
 {   splitscreen(60);
    waitraster; }
 
-{if (ch<>#27) then}
 
       for temp:=1 to 5 do inc(score,tyylip[temp]);
 
@@ -2243,9 +2098,7 @@ begin
         inc(pisteet[pel],score); { Oma pelaajan pisteet }
         CStats[kierros,pel]:=hp;
 
-(*        if (ex) then Cstats[kierros,pel]:=height*10+landing; *)
 
-(*        Cstats[kierros,pel]:=ponnistus*10; { yl”svaan } *)
        end;
 
       if (jcup) then inc(pisteet[team],score);
@@ -2291,22 +2144,12 @@ begin
 
         SetHRinfo(nytmaki,namestr,hp,dayandtime(Today,Now));
 
-{        HR[nytmaki].len:=hp; }
-{        HR[nytmaki].name:=namestr; }
-{        HR[nytmaki].time:=dayandtime(Today,Now); }
 
         if (kierros>0) then stats[statsvictim,osakilpailu].Reason[kierros]:=5;
 
         ThisIsAHillRecord:=(kierros*1000)+pel;
 
        end;
-{
-      fillbox(100,100,300,180,1);
-      writefont(110,110,1,'PONN '+txt(ponnistus));
-      writefont(110,120,1,'HP '+txtp(hp));
-      Maki.Paivitaruutu;
-      putsaa;
-      ch:=readkey;       }
 
       laskuri:=0;
       startanim:=100; { start "nousepa yl”s"-kuvio }
@@ -2319,11 +2162,10 @@ begin
       ukor:=kor;
       upx:=px;
 
-    {  if (gdetail=0) or (not cjumper) then} FontColor(247);
+      FontColor(247);
 
       Out:=False;
 
-{     kupat:=3; }
 
       if (kupat>0) then grade:=kupat;
 
@@ -2348,7 +2190,6 @@ begin
        kor:=Profiili(x);
        ukor:=Profiili(ux);
 
-      { if (x<1010) then}
 
        SkiAnim:=SuksiLaskussa(MakiKulma(x));
 
@@ -2428,7 +2269,6 @@ begin
                     case grade of
                     0..75  : begin       { h„pe„ v„h„n }
                               tempb:=137;
-                              { if (temp>4) and (grade<50) then tempb:=138; }
                              end;
 
                     105..200 : begin       { yeah! }
@@ -2436,7 +2276,6 @@ begin
                                 if (temp>3) then
                                  if (grade>114) then tempb:=141 else tempb:=140;
 
-{                                if (temp>4) and (grade>114) then tempb:=141; }
                                end;
 
                    end; { case grade }
@@ -2479,7 +2318,6 @@ begin
         Maki.Tulosta;
 
 {       PutPixel(KeulaX-Maki.X,Profiili(KeulaX)-Maki.Y,15); }
-{       tempb:=SuksiAnim(x); }
 {       Writefont(x-maki.x,y-maki.y-15,txt(SkiAnim-71)); }
 {       Writefont(x-Maki.X,y-Maki.Y-20,txt(makikulma(x))); }
 {       Writefont(x-Maki.X+15,y-Maki.Y-15,txt(kulma1)); }
@@ -2488,17 +2326,6 @@ begin
 {   Writefont(10,192,'LJA: '+txt(JumperAnim));
    Writefont(60,192,'LSA: '+txt(SkiAnim)); }
 
-{   if (JumperAnim>NumofAnims) or (SkiAnim>NumofAnims) or
-      (JumperAnim<1) or (SkiAnim<1) then
-    begin
-     beep(1);
-     writefont(100,80,'LASKU!');
-     writefont(100,100,'JAnim: '+txt(JumperAnim));
-     writefont(100,120,'SAnim: '+txt(SkiAnim));
-     maki.paivitaruutu;
-     ch2:=readkey;
-    end;
-}
         DrawLumi(DeltaX-Maki.X,DeltaY-Maki.Y,Tuuli.Value,LMaara,true);
 
         if (goals) and (goalx>0) then DrawAnim(goalx-Maki.X,goaly-Maki.Y,66); { tavoitekeppi }
@@ -2522,9 +2349,7 @@ begin
 
         ewritefont(308,9,namestr);
 
-{       temp2:=311; }
         temp2:=308;
-{       if (kierros=2) then temp2:=280; }
 
         ewritefont(temp2,33,txtp(hp)+'«');
 
@@ -2550,7 +2375,6 @@ begin
 
 {       ewritefont(304,8,namestr); }
 
-{        if (ex) then balk(0); }
 
          RD[0,RTurns]:=byte(128+x-fx);
          RD[1,RTurns]:=byte(128+y-fy);
@@ -2560,7 +2384,6 @@ begin
 
          inc(RTurns);
 
-{        if (ex) then balk(1); }
 
         DrawScreen;
 
@@ -2680,9 +2503,6 @@ begin
          if (inj[pel]>0) and (wcup) then
           begin
            fontcolor(239);
-{        str1:='LEGS.';
-         if (inj[pel]=1) then str1:='LEG.';
-         writefont(12,176,'WILL MISS NEXT '+txt(inj[pel])+str1); }
 
            str1:=txt(inj[pel]-1)+' '+lstr(76);
 
@@ -2699,15 +2519,12 @@ begin
 
        if (not draw) and (gdetail=0) then
         begin
-{         tuuli.value:=tuulisafe; }
          DrawLumi(DeltaX-Maki.X,DeltaY-Maki.Y,tuuli.value,LMaara,false); { pakko piirt„„ }
         end;
 
        if (draw) and (not cjumper) and (grade>0) and
           (Profile[actprofile].cstyle>0) then DoCoachCorner(height,kulmalaskuri,grade,ponnistus,Profile[actprofile].cstyle);
 
-{      if (landing=2) then writefont(160,45,'TASA');
-       WriteFont(160,33,'K'+txt(height)); }
 
        dec(RTurns); { niit„ on yksi liikaa }
 
@@ -2734,7 +2551,6 @@ begin
           end;
       end;
 
-{  if (ch=#68) then begin cupslut:=true; ch:=#27; end; }
 
   Maki.Lopeta;
 
@@ -2764,21 +2580,6 @@ begin
    end;
 {$ENDIF}
 
-{ if (ex) then
-  begin
-
-   fontcolor(240);
-   writefont(60,10,'Normaali lopetus');
-
-   writefont(60,20,'KeulaX: '+txt(keulaX));
-   writefont(60,30,'KeulaY: '+txt(profiili(keulaX)));
-   writefont(60,40,'Ponn: '+txt(ponnistus));
-
-   drawscreen;
-   readkey;
-
-  end;
-}
 
 end;
 
@@ -2801,12 +2602,6 @@ var count : longint;
    if (clr=0) then
     begin
      color:=240+(cln mod 2)*6;
-(*     case cln of
-     1,3,5 : color:=246;
-     0,2,4,6,8,10 : color:=240;
-     7,11 : color:=247;
-     9,12 : color:=249;
-     end; { case } *)
     end else color:=clr;
 
    FontColor(color);
@@ -2879,7 +2674,6 @@ if (jcup) then
 
      for player:=1 to 4 do { b on player, a on cup, d on team }
       begin
-{       if Stats[b+d*4,a].RoundLen[1]=1 then textcolor(15) else textcolor(11); }
        temp:=player+(team*4);
        xx:=(player-1)*3;
 
@@ -2896,7 +2690,6 @@ if (jcup) then
       end;
 
       if (Stats[team,cup].CompPos<9) then inc(count,TeamPoints[Stats[team,cup].CompPos]);
-{      if Stats[b+d*4,a].CompPos=1 then textcolor(15) else textcolor(14); }
 
       fontcolor(247);
       writefont(col[1],yy,lstr(107));
@@ -2906,7 +2699,6 @@ if (jcup) then
 
       fontcolor(247);
       ewritefont(122,yy,lstr(110));
-{      if Stats[d,a].WCPos=1 then textcolor(31) else textcolor(15); }
       str1:='- ';
       if (count>0) then str1:=txt(Stats[team,cup].WCPos)+'.';
 
@@ -3068,7 +2860,6 @@ if (jcup) then
 
   WS(1,0,lstr(100));
 
-{  if (Stats[d,a].WCPos=1) then textcolor(31) else textcolor(15); }
   WS(3,0,txt(count));
 
  if (count>0) then WS(4,0,txt(Stats[player,cup].WCPos)+'.');
@@ -3105,9 +2896,6 @@ if (jcup) then
 
  until (player<0) or (player>pmaara);
 
-{  DrawScreen;
-
-  CupSlut:=waitforkey2(ch); }
 
  end;
 
@@ -3406,8 +3194,7 @@ begin
   case phase of
   0 : if (numcustoms>0) then num:=(NumCustoms-1) div 20+4
                         else num:=3;
-  1 : { num:=2; }
-      num:=(NumExtraHills-1) div 20+2;
+  1 : num:=(NumExtraHills-1) div 20+2;
   2 : num:=1;
   end;
 
@@ -3468,7 +3255,6 @@ begin
   good:=false;
 
   SDLPort.WaitForKeyPress(ch,ch2);
-{  ch2:=#1; }
 
   case ch of
   #27 : begin index:=-1; good:=true; end;
@@ -3536,7 +3322,6 @@ var out,str1, str2 : string;
     temp3 : integer;
 begin
 
-{  if (vaihe=2) then newscreen(1,4) else newscreen(1,0); }
 
 {  fontcolor(240); }
 
@@ -3547,8 +3332,6 @@ begin
        if (osakilpailu=CupHills) then out:=lstr(90)+' '+lstr(27+cupstyle)
         else
          begin
-          (*  for temp:=1 to pmaara do begin {sija[g]:=51-g;} Stats[temp,osakilpailu].WCPos:=NumPl; end;
-           *)
           out:=lstr(27+cupstyle)+' '+lstr(87)+' '+txt(osakilpailu)+' '+lstr(8)+' '+txt(CupHills);
          end;
 
@@ -3582,9 +3365,7 @@ begin
 
 {    fillline(15,'-'); }
 
-{  if (vaihe=2) then textbackground(0) else textbackground(1); }
 
-{    b:=1;c:=3; }
 
  donewheader:=out;
 
@@ -3837,21 +3618,6 @@ begin
      if (temp2 > 0) then WriteCustom(SetFile,sortby,HillOrder,CupHills);
     end;
 
-(*
-     pts:=mcpisteet[who];
-     if (sortby=1) then pts:=fourpts[who];
-
-     if (pts > temphi.score) then
-      begin
-       oldhi:=temphi;
-       temphi.name:=nimet[who];
-       temphi.pos:=sija[who];
-       temphi.score:=pts;
-       temphi.time:=dayandtime(Today,Now);
-       WriteCustomRecord(SetFile,temphi);
-       cscreen:=true;
-      end;
-*)
 
   end;
 
@@ -3955,10 +3721,6 @@ end;
      prev:=templuett[temp-1];
      next:=templuett[temp+1];
 
-(*
-     if (sija[who]>10) and (sija[prev]<=10) and (shown<needtoshow)
-      then temp2:=entry(0,0,2,'...',0,0,0,'X');  { v„liviiva }
-*)
 
      if (shouldishow(temp)=1) then  { t„„ mun pitikin n„ytt„„ }
       begin
@@ -4041,7 +3803,6 @@ end;
 
   if (temp=-2) then cupslut:=true;
 
-{  cupslut:=waitforkey2(ch); }
 
 {$IFDEF REG}
  if (not cupslut) and (cupstyle=0) and (ch<>#27) and (vaihe=4) and
@@ -4284,7 +4045,6 @@ begin
 
   kothjarj;
 
-{  for a:=1 to 50 do pisteet[a]:=1000; }
 
   str1:=' '+lstr(95);
 
@@ -4296,8 +4056,6 @@ begin
 
    repeat
 
-{    DrawScreen;
-    ch:=readkey; }
 
      temp2:=0;
      extra:='X';
@@ -4421,7 +4179,6 @@ begin
 
      fontcolor(241);
      drawstuff(temp2,26-temp,10); { vs. }
-{     if (who>Numpl-pmaara) then fontcolor(240); }
      if (phase=1) then case qual[who] of
      1 : fontcolor(251); { tummankeltainen }
      2 : fontcolor(252);
@@ -4432,7 +4189,6 @@ begin
      drawstuff(temp2,26-temp,temp2); { nimi ruutuun }
      if (phase=1) then
       begin
-{       if (who>Numpl-pmaara) and (qual[who]>0) then fontcolor(246); }
        drawstuff(temp2,26-temp,temp2+4);
        drawstuff(temp2,26-temp,temp2+6);
       end else drawstuff(temp2,26-temp,temp2+2); { qual }
@@ -4456,17 +4212,10 @@ end;
 procedure jumpalku;
 var temp : integer;
  begin
-{  maki:=osakilpailu mod mmaara; }
 
-{  nytmaki:=osakilpailu; }  { t„m„ tehd„„n paikallisesti ennen jumpalkua }
-
-{  kr:=kri[nytmaki]; } { t„m„ luetaan LoadInfon avulla }
 
   LoadInfo(nytmaki,ActHill);
 
-(*
-  if jcup then mctil[0,osakilpailu,1]:=maki;     { Miss„ m„ess„ hyp„ttiiin... }
-  *)
 
   for temp:=1 to NumPl+1 do
    begin
@@ -4507,8 +4256,6 @@ begin
 
   NewScreen(2,0);
 
-{  if (start=0) then NewScreen(2,0)
-               else NewScreen(2,5); }
 
   fontcolor(240);
 
@@ -4593,7 +4340,6 @@ begin
 
    if (nytmaki>0) then jumpalku;
 
-   { kr:=kri[nytmaki]; }
    if (ch<>#27) and (nytmaki>0) then
     repeat
      Tuuli.Alusta(windplace);
@@ -4663,17 +4409,6 @@ begin
           kothmaki:=0;
          end;
 
-{   7   : begin
-          kothmaara:=random(9)+1;
-          for temp:=1 to 9 do
-           begin
-            kothpel[temp]:=random(60)+1;
-             for b:=1 to a-1 do
-              if kothpel[temp]=kothpel[b] then dec(a);
-           end;
-          kothwind:=boolean(random(2));
-          koth1r:=boolean(random(2));
-         end;  }
     end; { case }
 end;
 
@@ -4692,7 +4427,6 @@ begin
 
    if (kothwind) then Tuuli.Alusta(windplace) else tuuli.voim:=0;
 
-{  if (not cupslut) and (preview1) then preview(nytmaki); }
 
   for temp:=1 to kothmaara do
     mcluett[temp]:=kothpel[temp];
@@ -4714,7 +4448,6 @@ begin
    for temp:=1 to NumPl do
     luett[temp]:=0;
 
-{  eka:=true; } { kaivanvertanen„st„ }
   kierros:=1;
   realindex:=0; { monta „ij„„ oikeasti hyp„nnyt }
 
@@ -4727,7 +4460,6 @@ begin
        eka:=false;
       end;
 
-{    eka:=true;  } { TSEKKAA TŽMŽ!!! }
 
   realindex:=0;
 
@@ -4748,10 +4480,6 @@ begin
 
   if (not cupslut) then kothlista;
 
-{    textcolor(1);
-    for a:=1 to kothmaara+pmaara do
-     writeln(a,'. ',mcpisteet[mcluett[a]],' ',nimet[mcluett[a]],mcluett[a],'  ',pisteet[a]);
-    readln; }
 
    end;
 
@@ -4919,29 +4647,28 @@ begin
   3 : begin
        kothpack:=0;
        choosekoth;
-      end; { else if (beeppi) then beep(2); }
+      end;
   4 : begin
        kothpack:=0;
        kothmaki:=selecthill(1,kothmaki);
-      end; { else if (beeppi) then beep(2); }
+      end;
   5 : begin
        kothpack:=0;
        kothwind:=not kothwind;
-      end; { else if (beeppi) then beep(2); }
+      end;
   6 : begin
        kothpack:=0;
        case kothrounds of
        1 : kothrounds:=2;
        2 : kothrounds:=1;
        end;
-      end;{ else if (beeppi) then beep(2);}
+      end;
 {$ENDIF}
 
   end; { case }
 
  until (index=0){ or (index=1)};
 
-{  if (index=1) then startkoth; }
 
  WriteConfig; { kirjoitetaan muutokset levylle }
 
@@ -5030,11 +4757,6 @@ begin
 
   if (jmaara>1) then GetTeam(1);
 
-{  ShowTeam(0);
-
- if (jmaara>1) then ShowTeam(1);
-
-  FontColor(240); }
 
   for temp:=1 to 4 do
    TeamLineup[14*4+temp]:=NumPl+1-temp;
@@ -5127,13 +4849,10 @@ begin
 
     jumpalku;
 
-{    Stats[0,osakilpailu].Reason[1]:=nytmaki; }
 
-{    if (preview1) then preview(nytmaki); }
 
     kierros:=1;
 
- {  team:=1; }
 
    eka:=true;
 
@@ -5143,9 +4862,6 @@ begin
        for temp:=1 to 15 do
         luett[temp]:=0;
 
-{       eka:=true; }
-
-      { if (not cupslut) then jmuidenhypyt(index); }
 
        for temp2:=1 to NumTeams do
         begin
@@ -5154,8 +4870,6 @@ begin
 
          temp:=teamlineup[(team-1)*4 + index];
 
-{         temp:=round((5-index)*2.5+(team*1.5)-3);
-         if (team > NumTeams-jmaara) then temp:=NumPl+1-(15-team)*4-index; }
 
          if (not cupslut) then hyppy(index, temp, team);
 
@@ -5169,7 +4883,6 @@ begin
 
     inc(kierros);
 
-{    eka:=true; }  { hullu! }
 
     if (ch<>'S') and (ch<>'s') then { 2. kierros }
      for index:=1 to 4 do
@@ -5178,7 +4891,6 @@ begin
        for temp:=1 to 15 do
         luett[temp]:=0;
 
-{       eka:=true; }  { TARKASTA! (OK) }
 
        for temp2:=1 to NumTeams do
         begin
@@ -5186,8 +4898,6 @@ begin
          team:=teamorder[temp2];
          temp:=teamlineup[(team-1)*4 + index];
 
-{        temp:=round((5-index)*2.5+(team*1.5)-3);
-         if (team > NumTeams-jmaara) then temp:=NumPl+1-(15-team)*4-index; }
 
          if (not cupslut) then hyppy(index, temp, team);
          eka:=false;
@@ -5198,7 +4908,6 @@ begin
        if (not cupslut) then jlista(index);
       end;
 
-{       eka:=true; }
 
       if (ch='S') or (ch='s') then { skippaus (?) }
        begin
@@ -5212,7 +4921,6 @@ begin
 
    until (cupslut) or (osakilpailu>=6);
 
- { end; }
 
 end;
 
@@ -5267,7 +4975,6 @@ begin
  startgate:=0;
 
  cupslut:=false;
-{ team:=1; }
 
  for temp:=0 to NumPl+1 do
   begin
@@ -5355,7 +5062,6 @@ begin
 
           kierros:=0;
 
-          { QUAL ROUND  kierros:=0; }
 
           if (not CupSlut) then { NEW! }
              for index:=NumPl downto 1 do
@@ -5405,10 +5111,7 @@ begin
 
        end;
 
-{       for a:=50 to NumPl do
-        if (sija[luett[a] }
 
-{      for a:=1 to NumPl do luett[a]:=0; }
 
       temp2:=1;
 
@@ -5519,9 +5222,6 @@ begin
         end;
 
       ch:=#1; { ettei hypyn keskeytt„minen sotke liikaa }
-{
-      for temp:=1 to pmaara do
-       if (sija[NumPl+1-temp]>30) then stats[temp,osakilpailu].Reason[2]:=4;}  { Ei selvinnyt tokalle }
 
          eka:=true;
 
@@ -5548,8 +5248,6 @@ begin
 
      end;
 
-{     for temp:=1 to NumPl do
-       if (inj[temp]>0) then dec(inj[temp]); }
 
     for temp:=0 to NumPl+1 do luett[temp]:=0;
 
@@ -5591,7 +5289,6 @@ begin
  if (length(str1) > 1) then
  begin
    case str1[2] of
-  { 'x' : ex:=true; }
   { 't' : StartTest; }
    'r' : ResetHiscore(1);
    'z' : ResetHiscore(0);
@@ -5671,7 +5368,6 @@ begin
 
   MainMenuText(0,version_full);
 
-{  index:=MakeMenu(30,69,110,10,8,index,243,0,6); }
 
   index:=MakeMenu(11,97,108,12,6,index,8,4,2);
 
@@ -5693,14 +5389,6 @@ begin
 
 {    testanims; }
 
-{   1 : begin justfourhills:=false; cup; end;
-   2 : begin justfourhills:=true; cup; end;
-   3 : teamcup;
-   4 : newkingofthehill;
-   5 : training;
-   6 : signupplayers;
-   7 : setupmenu;
-   8 : showtops; }
   end; { case }
 
   if (index=0) then index:=quitting(0);
@@ -5713,7 +5401,6 @@ begin
 
 { Textmode(CO80); }
 
-{  for a:=1 to 50 do write(index,' '); }
 
 {  readln; }
 
@@ -5743,10 +5430,6 @@ begin
  write('- Loading ANIM.SKI');
   LoadAnim('ANIM.SKI');
 
-(*
-  for temp:=1 to MaxOwnPl do
-   haalarit[temp]:=temp mod 7; { hyppypuvun v„ri kaikille erilainen }
-*)
 
   eka:=true;
 
@@ -5769,18 +5452,10 @@ begin
  writeln(', NAMES',namenumber,'.SKI');
   LoadNames(namenumber,jmaara,TeamLineup,true);
 
-{ write(', TEAMS',teamnumber,'.SKI');
-   LoadTeams(teamnumber,jmaara,NumTeams,Jnimet); }
 
  write('  LANGBASE.SKI');
   if (languagenumber<>255) then LoadLanguage(languagenumber);
 
-{
-  writeln('Kieli: ',lnames[1]);  writeln('Kieli„: ',numlanguages);
-  for a:=1 to 15 do
-   writeln(lstr(temp));
-  readln;
-}
 
  CheckExtraHills; { lukee ylim. SJH:t ja kirjoittaa MOREHILL.SKI:n }
 
@@ -5792,12 +5467,8 @@ begin
 
  Maki.Alusta;
 
-(*
- SetFile:='TEMP'; { custom setin tiedosto }
-*)
 
 { LoadFonts; }
-{ tuuli:=-70;}
 
 end;
 
@@ -5879,7 +5550,6 @@ begin  { MAIN }
  version:='3.13';
  version_full:=version+'-'+SdlPort.GetVersion;
 
-(* ex:=true;    { expert-mode } *)
 
 {$IFDEF REG}
  reg:=true;   { registered wai no }
@@ -5887,12 +5557,8 @@ begin  { MAIN }
  reg:=false;
 {$ENDIF}
 
-{  reg:=boolean(random(2)); }
 
-{ if (paramstr(1)='U') then reg:=false; }
 
-{ regname:='THIS IS A PRIVATE VERSION';
-  regnumber:='1234A'; }
 
  SDLPort.Init;
  SDLPort.SetCloseCallback(CloseAndHalt);
@@ -5904,7 +5570,6 @@ begin  { MAIN }
   LoadSounds;
   SetSamplingrate(13000);  }
 
-{  boole:=StartSound(Sound[0],0,True); }
 
 { ResetHiscore(1); }
 
@@ -5926,11 +5591,5 @@ begin  { MAIN }
 
   FreeSounds;   }
 
-{ for a:=232 to 239 do
-  begin
-   write(paletti[a,0]:4);
-   write(paletti[a,0]:4);
-   writeln(paletti[a,0]:4);
-  end; }
 
 end.
