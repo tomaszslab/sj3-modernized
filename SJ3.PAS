@@ -764,6 +764,27 @@ begin
       end;
 end;
 
+{ Physics regression test.
+
+  The codegen hash in tools/verify-codegen.sh proves that a mechanical change
+  did not alter the program, but it says nothing once a commit legitimately
+  changes the emitted code - and by then it is the physics one actually wants
+  to hold still. Replays cannot stand in for this either: they store position
+  deltas and sprite indices, so playing one back never re-runs the simulation.
+
+  So: seed the generator, let computer jumpers jump - they drive themselves,
+  which avoids having to script any input - and fold every frame of every jump
+  into one number. RD already holds the per-frame record the replay writer
+  uses, which is position deltas, both animation indices and the wind, so it is
+  a fingerprint of the trajectory rather than merely of the result. }
+var PhysicsHash : LongInt;
+
+procedure PhysicsFold(v : LongInt);
+begin
+  { FNV-style, kept in 31 bits so it behaves the same on any Pascal }
+  PhysicsHash := ((PhysicsHash xor (v and $FF)) * 16777619) and $7FFFFFFF;
+end;
+
 procedure hyppy(index,pel,team:integer);
 
 var { SoundOn : array[0..5] of boolean; }
@@ -1388,7 +1409,7 @@ begin
 
   Tuuli.Hae;
 
-  if (draw) and (ch<>#27) then
+  if (draw) and (ch<>#27) and (not SDLPort.PhysicsTestMode) then
     repeat  { INFORUUTU LUUPPI! }
 
       inc(laskuri);
@@ -1504,7 +1525,7 @@ begin
   RstartX := x;
   RstartY := y;
 
-  if (ch<>#27) and (draw) then  { ISTUU PARRULLA LUUPPI }
+  if (ch<>#27) and (draw) and (not SDLPort.PhysicsTestMode) then  { ISTUU PARRULLA LUUPPI }
     repeat
 
       if (not treeni) then inc(laskuri);
@@ -2058,6 +2079,13 @@ begin
         end; { if draw }
 
     until (Out);   { ***  LENTO LOPPUU  *** }
+
+  if (SDLPort.PhysicsTestMode) then
+    begin
+      PhysicsFold(RTurns);
+      for temp := 0 to RTurns do
+        for temp2 := 0 to 4 do PhysicsFold(RD[temp2,temp]);
+    end;
 
   dropY := posY-KeulaY;
   hp := round(nsqrt((distance*distance)+(dropY*dropY))*acthill.pk*0.5)*5;
@@ -5544,6 +5572,60 @@ begin
 
 end;
 
+{ Jump a fixed set of hills with a fixed seed and print one number covering
+  every simulated frame. Any change to the physics, the hill profiles or the
+  animation tables moves it; reformatting, renaming and the whole rendering
+  path do not. }
+procedure PhysicsTest;
+
+var hill, jumper, seed : integer;
+begin
+  PhysicsHash := 2166136261 and $7FFFFFFF;
+
+  { The test has to start from the same place every time. Computer jumpers can
+    set hill records, a record persists to HISCORE.SKI, and its presence
+    changes the path a later jump takes - so two runs of the same build drifted
+    apart partway through. Deny them records and clear the ones already stored
+    for the hills used here. Nothing is written back; see loppu. }
+  comphrs := false;
+  goals := false;
+  for hill := 1 to 4 do
+    SetHRinfo(hill, 'TEST', 0, 'TEST');
+
+  for seed := 1 to 2 do
+    begin
+      RandSeed := 1000 * seed + 7;
+
+      for hill := 1 to 2 do
+        begin
+          osakilpailu := 0;
+          kierros := -10;
+          treeni := true;
+          cupslut := false;
+          ch := #1;
+          startgate := 15;
+          nytmaki := hill;
+          seecomps := 239;      { watch everyone, so RD is recorded }
+          eka := true;
+
+          jumpalku;
+
+          for jumper := 1 to 2 do
+            begin
+              Tuuli.Alusta(windplace);
+              hyppy(1,jumper,0);
+              eka := false;
+            end;
+        end;
+    end;
+
+  treeni := false;
+  startgate := 0;
+
+  writeln;
+  writeln('physics hash: ', PhysicsHash);
+end;
+
 procedure MainMenu;
 
 var index : integer;
@@ -5670,6 +5752,13 @@ end;
 procedure loppu;
 begin
 
+  { the physics test must not leave its jumps behind in the saved files }
+  if (SDLPort.PhysicsTestMode) then
+    begin
+      writeln;
+      exit;
+    end;
+
   writeln('SJ3 v',version,' by Ville Könönen 2013');
 
   GetNow(Now);
@@ -5737,7 +5826,7 @@ begin  { MAIN }
   sj3info.Init;
   lumi.Init;
 
-  randomize;
+  if (not SDLPort.PhysicsTestMode) then randomize;
 
   getdate(Today.Year,Today.Month,Today.Day,Today.DayofWeek);
   getnow(start);
@@ -5764,7 +5853,8 @@ begin  { MAIN }
 
 { ResetHiscore(1); }
 
-  if (SDLPort.PracticeMode) then training
+  if (SDLPort.PhysicsTestMode) then PhysicsTest
+  else if (SDLPort.PracticeMode) then training
   else MainMenu;
 
 {  Valikko; }

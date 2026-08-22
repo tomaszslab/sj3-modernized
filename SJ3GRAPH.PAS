@@ -72,6 +72,11 @@ end;
 
 procedure DrawScreen;
 begin
+  { The physics test neither draws nor waits for the frame tick, so a jump
+    runs in a moment rather than in real time. Nothing it measures depends
+    on the picture. }
+  if (SDLPort.PhysicsTestMode) then exit;
+
   SdlPort.WaitRaster;
   SdlPort.Render(Video);
 end;

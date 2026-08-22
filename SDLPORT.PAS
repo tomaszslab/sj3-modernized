@@ -10,6 +10,7 @@ type TOverlayCallback = procedure ;
 
 function GetVersion : string;
 function PracticeMode : boolean;
+function PhysicsTestMode : boolean;
 procedure ReportFrameTime;
 procedure InvalidateHiresBackdrop;
 
@@ -101,6 +102,7 @@ var windowMultiplier: integer;
   swRendering: boolean;
   practiceRun: boolean;
   timeFrames: boolean;
+  physicsTest: boolean;
   hiresTest: boolean;
   hiresBack: boolean;
   { The backdrop, resampled once per hill to pixelScale resolution and held as
@@ -128,7 +130,7 @@ procedure GetArguments;
 
 var c : char;
   optionindex : Longint;
-  options : array[1..12] of TOption;
+  options : array[1..13] of TOption;
 
 begin
   with options[1] do
@@ -215,6 +217,13 @@ begin
       flag := nil;
       value := #0;
     end;
+  with options[13] do
+    begin
+      name := '--physics-test';
+      has_arg := 0;
+      flag := nil;
+      value := #0;
+    end;
   c := #0;
   optionindex := 0;
   repeat
@@ -271,6 +280,10 @@ begin
              if (options[optionindex].name = '--accelerated-rendering') then
                begin
                  swRendering := false;
+               end;
+             if (options[optionindex].name = '--physics-test') then
+               begin
+                 physicsTest := true;
                end;
            end;
       's' : swRendering := true;
@@ -349,6 +362,13 @@ begin
   PracticeMode := practiceRun;
 end;
 
+{ Run jumps as fast as the machine allows and hash what the simulation did,
+  rather than drawing anything. See PhysicsTest in SJ3.PAS. }
+function PhysicsTestMode: boolean;
+begin
+  PhysicsTestMode := physicsTest;
+end;
+
 { With --frame-time, report how long Render took. The frame budget is
   1000/targetFrames ms, so this says how much of it the pixel work costs. }
 procedure ReportFrameTime;
@@ -386,6 +406,7 @@ begin
   practiceRun := false;
   timeFrames := false;
   hiresTest := false;
+  physicsTest := false;
   { The high-resolution paths are the point of the port now, so they are on
     unless asked otherwise. --no-hires restores the original rendering, which
     is also how the pixel-identity regression check is run. }
@@ -1157,6 +1178,7 @@ var event : TSDL_Event;
   pressed: boolean;
 begin
   pressed := false;
+  if (physicsTest) then begin KeyPressed := false; exit; end;
 
   while SDL_PollEvent(@event) = 1 do
     begin
@@ -1222,6 +1244,15 @@ var event : TSDL_Event;
 begin
   ch1 := #0;
   ch2 := #0;
+
+  { The physics test runs with nobody at the keyboard, and the game stops for
+    a keypress after every jump. Answer as though Enter had been pressed, so
+    it walks through the result screens by itself. }
+  if (physicsTest) then
+    begin
+      ch1 := #13;
+      exit;
+    end;
   // Setting ch2 to a correct scancode value for the key pressed can be largely ignored.
   // It is only checked by the game for special keys, where ch1 is checked or assumed to be 0.
 

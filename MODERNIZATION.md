@@ -90,6 +90,7 @@ Notes:
 | `./build.sh` | clone headers if missing, seed save files from `defaults/`, compile |
 | `./format.sh` | reformat all sources with ptop plus a cleanup pass |
 | `./tools/verify-codegen.sh` | print a hash of the emitted assembly |
+| `./tools/physics-test.sh` | check the simulation still behaves identically |
 | `./tools/lower-keywords.py` | lowercase reserved words, skipping strings and comments |
 
 `verify-codegen.sh` is the safety net for mechanical work. It compiles with
@@ -102,6 +103,11 @@ It held unchanged at `368f333b...` across the dead-code removal and the
 reformatting, proving those passes were pure no-ops. It moved deliberately when
 `--practice` was added, since that commit adds real code; it moves again for any commit that adds
 code, as the two render commits did. The value above is the current baseline.
+
+**It only covers mechanical changes.** Once a commit legitimately changes the
+emitted code the hash moves for a reason that has nothing to do with physics,
+and it stops being evidence of anything. `tools/physics-test.sh` is what guards
+the simulation from that point on.
 
 It is not a formality. During the dead-code pass it caught two adjacent comment
 blocks being spliced together, which swallowed the live line between them:
@@ -695,6 +701,39 @@ Each commit builds and runs on its own.
     literals — they are content, not geometry.
 
 ---
+
+## 11a. The physics test
+
+```sh
+./tools/physics-test.sh            # compare against the recorded hash
+./tools/physics-test.sh --accept   # record a new one, when the change was intended
+```
+
+`--physics-test` seeds the generator, jumps a fixed set of hills with computer
+jumpers - they drive themselves, so no input has to be scripted - and folds
+every frame of every jump into one number. Drawing and frame pacing are off, so
+the whole run takes a moment.
+
+What it folds is `RD`, the per-frame record the replay writer already keeps:
+position deltas, both animation indices and the wind. That makes it a
+fingerprint of the trajectory rather than only of the final distance.
+
+Verified to have the three properties that make it worth having: the same build
+gives the same number every time; the number does not move when the rendering
+path changes, including `--no-hires` and `--accelerated-rendering`; and it does
+move for a real physics change - altering the inrun acceleration or the
+integration step both changed it.
+
+**Getting it deterministic took one non-obvious fix.** Computer jumpers can set
+hill records, a record persists to `HISCORE.SKI`, and its presence changes the
+path a later jump takes, so two runs of the same build drifted apart partway
+through. The test now denies computer jumpers records, clears the stored ones
+for the hills it uses, and writes nothing back on exit.
+
+**It guards the paths it exercises, not the whole simulation.** A third probe -
+changing the lift floor, `if (lift<0.105)` - did not move the hash, because
+these particular jumps never reach that floor. Widening the set of hills, seeds
+and jumpers would narrow that gap.
 
 ## 12. The high-resolution hill and backdrop
 
