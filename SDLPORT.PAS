@@ -66,6 +66,7 @@ var windowMultiplier: integer;
   swRendering: boolean;
   practiceRun: boolean;
   timeFrames: boolean;
+  hiresTest: boolean;
   renderTicks, renderCount, renderPeak: UInt64;
   expandTicks: UInt64;
 
@@ -73,7 +74,7 @@ procedure GetArguments;
 
 var c : char;
   optionindex : Longint;
-  options : array[1..3] of TOption;
+  options : array[1..4] of TOption;
 
 begin
   with options[1] do
@@ -97,6 +98,13 @@ begin
       flag := nil;
       value := #0;
     end;
+  with options[4] do
+    begin
+      name := '--hires-test';
+      has_arg := 0;
+      flag := nil;
+      value := #0;
+    end;
   c := #0;
   optionindex := 0;
   repeat
@@ -115,6 +123,10 @@ begin
              if (options[optionindex].name = '--frame-time') then
                begin
                  timeFrames := true;
+               end;
+             if (options[optionindex].name = '--hires-test') then
+               begin
+                 hiresTest := true;
                end;
            end;
       's' : swRendering := true;
@@ -220,6 +232,7 @@ begin
   swRendering := false;
   practiceRun := false;
   timeFrames := false;
+  hiresTest := false;
   renderTicks := 0;
   renderCount := 0;
   renderPeak := 0;
@@ -331,6 +344,72 @@ begin
   closeCallback := callback;
 end;
 
+{ Plot a single texture pixel. Coordinates are texture pixels, not logical
+  ones, so this can address detail four times finer than the game can. }
+procedure PlotHi(pixels : Pointer; pitch, x, y : LongInt; colour : UInt32);
+begin
+  if (x >= 0) and (x < texW) and (y >= 0) and (y < texH) then
+    PPixelRow(PtrUInt(pixels) + PtrUInt(y * pitch))^[x] := colour;
+end;
+
+{ A test card proving the texture really is 1280x800 and not a magnified
+  320x200 image. Each figure is drawn twice: on the left at texture
+  resolution, on the right in 4x4 blocks the way the game would have to draw
+  it. If the two halves look the same, the extra pixels are not real. }
+procedure DrawHiresTest(pixels : Pointer; pitch : LongInt);
+const
+  white = $FFFFFFFF;
+  black = $000000FF;
+  amber = $FFB000FF;
+  slate = $5A6478FF;
+var
+  i, x, y, bx, by : LongInt;
+begin
+  for y := 0 to 135 do
+    for x := 0 to 371 do
+      PlotHi(pixels, pitch, 12 + x, 12 + y, black);
+
+  for x := 0 to 371 do
+    begin
+      PlotHi(pixels, pitch, 12 + x, 12, slate);
+      PlotHi(pixels, pitch, 12 + x, 147, slate);
+    end;
+  for y := 0 to 135 do
+    begin
+      PlotHi(pixels, pitch, 12, 12 + y, slate);
+      PlotHi(pixels, pitch, 383, 12 + y, slate);
+      PlotHi(pixels, pitch, 197, 12 + y, slate);
+    end;
+
+  { --- left: true texture resolution --- }
+  for i := 0 to 99 do                        { one-pixel diagonal }
+    PlotHi(pixels, pitch, 24 + i, 24 + i, white);
+  for i := 0 to 79 do                        { one-on one-off comb }
+    if (i mod 2) = 0 then
+      for y := 0 to 39 do
+        PlotHi(pixels, pitch, 100 + i, 30 + y, amber);
+  for i := 0 to 79 do                        { one-pixel horizontal rules }
+    if (i mod 2) = 0 then
+      for x := 0 to 79 do
+        PlotHi(pixels, pitch, 100 + x, 84 + i div 2 * 2, amber);
+
+  { --- right: the same, in 4x4 blocks, as the game would draw it --- }
+  for i := 0 to 24 do
+    for by := 0 to 3 do
+      for bx := 0 to 3 do
+        PlotHi(pixels, pitch, 208 + i*4 + bx, 24 + i*4 + by, white);
+  for i := 0 to 19 do
+    if (i mod 2) = 0 then
+      for y := 0 to 39 do
+        for bx := 0 to 3 do
+          PlotHi(pixels, pitch, 284 + i*4 + bx, 30 + y, amber);
+  for i := 0 to 19 do
+    if (i mod 2) = 0 then
+      for by := 0 to 3 do
+        for x := 0 to 79 do
+          PlotHi(pixels, pitch, 284 + x, 84 + i*4 + by, amber);
+end;
+
 procedure Render(buffer : array of byte);
 
 var pixels : Pointer;
@@ -390,6 +469,8 @@ begin
              PPixelRow(PtrUInt(pixels) + PtrUInt((dstY + rep) * pitch))^,
              texW * SizeOf(UInt32));
     end;
+
+  if (hiresTest) then DrawHiresTest(pixels, pitch);
 
   SDL_UnlockTexture(displayTexture);
   if (timeFrames) then expandTicks := expandTicks + (SDL_GetPerformanceCounter - t1);
