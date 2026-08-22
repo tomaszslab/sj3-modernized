@@ -210,7 +210,7 @@ begin
     end;
   with options[12] do
     begin
-      name := '--gl-rendering';
+      name := '--accelerated-rendering';
       has_arg := 0;
       flag := nil;
       value := #0;
@@ -268,7 +268,7 @@ begin
                begin
                  hiresFront := true;
                end;
-             if (options[optionindex].name = '--gl-rendering') then
+             if (options[optionindex].name = '--accelerated-rendering') then
                begin
                  swRendering := false;
                end;
@@ -380,8 +380,8 @@ begin
     write-combined memory and the per-frame copies into it cost about twice
     what they do against ordinary RAM. Measured during a jump on a machine
     reporting no acceleration: 14.6-17.2 ms through OpenGL against 8.8-10.6 ms
-    in software, on a 14.3 ms budget. --gl-rendering asks for the accelerated
-    path on machines that really have one. }
+    in software, on a 14.3 ms budget. --accelerated-rendering asks for the
+    accelerated path on machines that really have one. }
   swRendering := true;
   practiceRun := false;
   timeFrames := false;
@@ -420,10 +420,12 @@ begin
             SDL_WINDOW_SHOWN or SDL_WINDOW_RESIZABLE);
   if window = nil then Halt;
 
-  if (swRendering = true) then
-    begin
-      rendererFlags := rendererFlags or SDL_RENDERER_SOFTWARE;
-    end;
+  if (swRendering) then
+    rendererFlags := rendererFlags or SDL_RENDERER_SOFTWARE
+  else
+    { Ask for acceleration rather than leaving the choice to SDL, so that
+      --accelerated-rendering means what its name says. }
+    rendererFlags := rendererFlags or SDL_RENDERER_ACCELERATED;
 
   { Nearest-neighbour scaling. This is SDL's default, so the game already
     looked right, but nothing said so: a host that sets the hint globally would
@@ -432,6 +434,9 @@ begin
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, '0');
 
   renderer := SDL_CreateRenderer(window, -1, rendererFlags);
+  { no accelerated driver available: fall back rather than refuse to start }
+  if (renderer = nil) and (not swRendering) then
+    renderer := SDL_CreateRenderer(window, -1, 0);
   if renderer = nil then Halt;
 
   { The game never fills the whole window - GetRenderRect letterboxes to keep

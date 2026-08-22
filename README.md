@@ -53,9 +53,8 @@ some buffer overflows have been fixed.
 | Command | Short |  Description |
 | --- | --- | --- |
 | --sw-rendering | -s | Enforce SW rendering (now the default) |
-| --gl-rendering | | Use the accelerated renderer instead |
+| --accelerated-rendering | | Ask SDL for a hardware-accelerated renderer |
 | --no-hires | | Render the original way, without the high-resolution layers |
-| --practice | -p | Skip the menus and start practising on the first hill |
 | --practice | -p | Skip the menus and start practising on the first hill |
 
 ## Build

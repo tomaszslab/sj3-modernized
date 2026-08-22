@@ -16,22 +16,29 @@ original gameplay, jump physics, controls and hill geometry exactly.
 | | |
 |---|---|
 | `129de57` | inspection baseline |
-| `6411942` | fix `EInvalidOp` crash on startup with hardware rendering |
+| `6411942` | fix `EInvalidOp` crash on startup |
 | `1ad3e2d` | untrack `MOREHILL.SKI` and user-created hills/cups/replays |
 | `c382e54` | this document |
 | `0f96125` | untrack player state, seed it from `defaults/`, add `build.sh` |
 | `877109c` | remove commented-out dead code (1038 lines) |
 | `4f341d1` | add `tools/verify-codegen.sh`, drop the one compound assignment |
 | `5b9c1d4` | reformat the sources with `format.sh` |
+| `a82c940` | realign this document with the code |
+| `1c1c447` | `--practice`, to skip the menus |
+| `cb774bf` | rename the confusable physics locals in `hyppy` |
+| `c83e505` | pin nearest-neighbour scaling and the letterbox colour |
+| `7eaae9e` | expand the frame into a 1280x800 texture |
+| `228fb9a` | prove the texture can be drawn at full resolution |
+| `8a2b002` | resample the backdrop |
+| `da4ad57` | draw text from a baked font atlas |
+| `edc181e` | fix text outside the jump, restore the outline, hi-res by default |
+| `e3bbe8a` | reconstruct the hill silhouette |
+| `d866e49` | default to software rendering |
 
-Nothing in the rendering path has been changed yet.
-
----|---|
-| `129de57` | inspection baseline |
-| `6411942` | fix `EInvalidOp` crash on startup with hardware rendering |
-| `1ad3e2d` | untrack `MOREHILL.SKI` and user-created hills/cups/replays |
-
-Nothing in the rendering path has been changed yet.
+Running `./SJ3` now renders at 1280x800 with a resampled backdrop, a
+reconstructed hill silhouette and a high-resolution font. `./SJ3 --no-hires`
+still produces a frame identical to the original, pixel for pixel, and that has
+held through every commit above.
 
 ---
 
@@ -89,7 +96,7 @@ Notes:
 `fpc -Mtp -a` and hashes the 14 emitted `.s` files; any change that is supposed
 to be behaviour-preserving must leave that hash alone. The current value is
 
-    2584311d8b1782a79673ae9c0922e4c1e46ed11df3d0f04ef0af6ba089c33d16
+    7c7e137b95bd544c5f32d1628c4ec23f96646bd59b5e6ae7b2a8eebb2b67ae24
 
 It held unchanged at `368f333b...` across the dead-code removal and the
 reformatting, proving those passes were pure no-ops. It moved deliberately when
@@ -774,11 +781,15 @@ simulation advances one step per rendered frame, so the game runs in slow
 motion instead. That makes render cost a gameplay concern rather than a
 cosmetic one.
 
-Measured during a jump, on a machine reporting no hardware acceleration:
+Measured during a jump, on a machine reporting no hardware acceleration. These
+are single runs without warm-up control, so treat them as showing a direction
+rather than as a controlled comparison - repeated OpenGL runs of the same build
+ranged from 11.8 to 17.2 ms, which is wider than the gap between some of the
+rows below.
 
 | | OpenGL | software |
 |---|---|---|
-| original resolution, no smoothing | 14.2 ms | 14.1 ms |
+| 1280x800, plain 4x expansion, no smoothing | 14.2 ms | 14.1 ms |
 | 1280x800, both layers | 14.6-17.2 ms | 8.8-10.6 ms |
 
 Two things worth keeping in mind, because both are counter-intuitive.
@@ -802,8 +813,22 @@ For the same reason the layered path is *faster* than the plain one on the
 software renderer, 8.4 ms against 14.1 ms: plain expansion writes a quarter of
 a million pixels individually, while the layered path is mostly `Move`.
 
-If more headroom is ever needed, `pixelScale` is one constant: 3 measures
-6.8 ms at 960x600.
+### pixelScale is not currently a supported setting
+
+`pixelScale` reads like a quality dial - 3 measures 6.8 ms at 960x600 against
+9 ms at 1280x800 - but only the value 4 is correct today, and the others fail
+*silently*, which is worse than failing loudly:
+
+- the resampling weights are computed as eighths, `((i + pixelScale - 2) mod
+  pixelScale) * 2 + 1`, which sums to 16 over four samples and to 9 over three.
+  At 3 every interpolated colour is subtly wrong, with nothing to indicate it.
+- `FONTHI.DAT` is generated for one scale and rejected at any other, so text
+  quietly falls back to the original blocky glyphs.
+- `rimHi` is tuned in texture pixels for 4, and the `--hires-test` card draws
+  its comparison blocks as literal 4x4.
+
+Generalising those is a small job, but until it is done, changing `pixelScale`
+produces a plausible-looking picture that is quietly incorrect.
 
 ## 12a. Testing the game without disturbing the desktop
 
