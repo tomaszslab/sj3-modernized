@@ -75,6 +75,7 @@ Notes:
 | | |
 |---|---|
 | `./SJ3 --practice` | skip the menus, jump straight in on the first hill |
+| `./SJ3 --frame-time` | report average and peak Render cost against the frame budget |
 | `./build.sh` | clone headers if missing, seed save files from `defaults/`, compile |
 | `./format.sh` | reformat all sources with ptop plus a cleanup pass |
 | `./tools/verify-codegen.sh` | print a hash of the emitted assembly |
@@ -84,7 +85,7 @@ Notes:
 `fpc -Mtp -a` and hashes the 14 emitted `.s` files; any change that is supposed
 to be behaviour-preserving must leave that hash alone. The current value is
 
-    8b8ab111f5b6922c008bfeed580bb5742b6e1195fa36c317dfbf02911200176d
+    21454394866d4fa14cb4b822dce737cd1e48cc1f182ac0695a6010f9527a0c82
 
 It held unchanged at `368f333b...` across the dead-code removal and the
 reformatting, proving those passes were pure no-ops. It moved deliberately when

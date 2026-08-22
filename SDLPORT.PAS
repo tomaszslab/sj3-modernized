@@ -8,6 +8,7 @@ type TCloseCallback = procedure ;
 
 function GetVersion : string;
 function PracticeMode : boolean;
+procedure ReportFrameTime;
 
 procedure Init;
 procedure DeinitGraphics;
@@ -30,9 +31,20 @@ uses sdl2, getopts, math;
 const version: string = 'SP5';
   xRes = 320;
   yRes = 200;
+  { Each logical pixel becomes a pixelScale x pixelScale block in the texture.
+    The game still draws into a 320x200 byte buffer and knows nothing about
+    this; the expansion happens on the way to the screen. The texture therefore
+    has 16 times the pixels of the logical frame, which is what later lets us
+    draw detail finer than a logical pixel. }
+  pixelScale = 4;
+  texW = xRes * pixelScale;
+  texH = yRes * pixelScale;
   targetFrames = 70;
   aspectRes: real = xRes / yRes;
   msPerTick: real = 1000 / 18.2065; { typical IBM PC PIT system clock tick rate }
+
+type TPixelRow = array[0..texW-1] of UInt32;
+     PPixelRow = ^TPixelRow;
 
 var windowMultiplier: integer;
   window: PSDL_Window;
@@ -53,12 +65,15 @@ var windowMultiplier: integer;
 
   swRendering: boolean;
   practiceRun: boolean;
+  timeFrames: boolean;
+  renderTicks, renderCount, renderPeak: UInt64;
+  expandTicks: UInt64;
 
 procedure GetArguments;
 
 var c : char;
   optionindex : Longint;
-  options : array[1..2] of TOption;
+  options : array[1..3] of TOption;
 
 begin
   with options[1] do
@@ -71,6 +86,13 @@ begin
   with options[2] do
     begin
       name := '--practice';
+      has_arg := 0;
+      flag := nil;
+      value := #0;
+    end;
+  with options[3] do
+    begin
+      name := '--frame-time';
       has_arg := 0;
       flag := nil;
       value := #0;
@@ -89,6 +111,10 @@ begin
              if (options[optionindex].name = '--practice') then
                begin
                  practiceRun := true;
+               end;
+             if (options[optionindex].name = '--frame-time') then
+               begin
+                 timeFrames := true;
                end;
            end;
       's' : swRendering := true;
@@ -167,15 +193,37 @@ begin
   PracticeMode := practiceRun;
 end;
 
+{ With --frame-time, report how long Render took. The frame budget is
+  1000/targetFrames ms, so this says how much of it the pixel work costs. }
+procedure ReportFrameTime;
+
+var freq : UInt64;
+begin
+  if (not timeFrames) or (renderCount = 0) then exit;
+  freq := SDL_GetPerformanceFrequency;
+  writeln;
+  writeln('Render: ', renderCount, ' frames, ',
+          (renderTicks * 1000000) div (freq * renderCount), ' us average, ',
+          (renderPeak * 1000000) div freq, ' us peak, budget ',
+          (1000000 div targetFrames), ' us');
+  writeln('  of which expansion: ',
+          (expandTicks * 1000000) div (freq * renderCount), ' us average');
+end;
+
 procedure Init;
 
 var rendererFlags : UInt32;
 begin
   rendererFlags := 0;
-  windowMultiplier := 2;
+  windowMultiplier := pixelScale;
   aspect := aspectRes;
   swRendering := false;
   practiceRun := false;
+  timeFrames := false;
+  renderTicks := 0;
+  renderCount := 0;
+  renderPeak := 0;
+  expandTicks := 0;
 
   GetArguments;
 
@@ -219,16 +267,18 @@ begin
   originalSurface := SDL_CreateRGBSurface(0, xRes, yRes, 8, 0, 0, 0, 0);
   if originalSurface = nil then Halt;
 
-  // 32-bit display surface for converting 8-bit data to 32-bit
-  displaySurface := SDL_CreateRGBSurface(0, xRes, yRes, 32, 0, 0, 0, 0);
+  { 32-bit staging surface, in the texture's own format so that expanding into
+    the texture is a straight copy with no pixel conversion. }
+  displaySurface := SDL_CreateRGBSurfaceWithFormat(0, xRes, yRes, 32,
+                    SDL_PIXELFORMAT_RGBA8888);
   if displaySurface = nil then Halt;
 
-  // Finally a texture for displaying 32-bit display data
+  { The texture is pixelScale times larger than the logical frame. }
   displayTexture := SDL_CreateTexture(renderer,
                     SDL_PIXELFORMAT_RGBA8888,
                     SDL_TEXTUREACCESS_STREAMING,
-                    xRes,
-                    yRes);
+                    texW,
+                    texH);
   if displayTexture = nil then Halt;
 
   RefreshRendering();
@@ -248,6 +298,7 @@ end;
 
 procedure DeinitGraphics;
 begin
+  ReportFrameTime;
   SDL_RemoveTimer(timer);
   SDL_FreeSurface(originalSurface);
   SDL_FreeSurface(displaySurface);
@@ -284,7 +335,13 @@ procedure Render(buffer : array of byte);
 
 var pixels : Pointer;
   pitch : LongInt;
+  srcRow, dstRow : PPixelRow;
+  srcX, srcY, dstX, dstY, rep : LongInt;
+  colour : UInt32;
+  t0, t1, dt : UInt64;
 begin
+  if (timeFrames) then t0 := SDL_GetPerformanceCounter;
+
   if (windowResized) then
     begin
       RefreshRendering();
@@ -301,20 +358,53 @@ begin
   // Blit 8-bit surface to 32-bit surface
   SDL_BlitSurface(originalSurface, nil, displaySurface, nil);
 
-  // Surface to texture
+  { Expand the logical frame into the texture, each pixel becoming a
+    pixelScale x pixelScale block. Only every pixelScale'th destination row is
+    built pixel by pixel; the rows between it are identical, so they are copied
+    wholesale. Source and destination share a pixel format, so no conversion
+    happens here. }
+  if (timeFrames) then t1 := SDL_GetPerformanceCounter;
   SDL_LockTexture(displayTexture, nil, @pixels, @pitch);
 
-  SDL_ConvertPixels(displaySurface^.w, displaySurface^.h,
-                    displaySurface^.format^.format,
-                    displaySurface^.pixels, displaySurface^.pitch,
-                    SDL_PIXELFORMAT_RGBA8888,
-                    pixels, pitch);
+  for srcY := 0 to yRes - 1 do
+    begin
+      srcRow := PPixelRow(PtrUInt(displaySurface^.pixels) +
+                          PtrUInt(srcY * displaySurface^.pitch));
+      dstY := srcY * pixelScale;
+      dstRow := PPixelRow(PtrUInt(pixels) + PtrUInt(dstY * pitch));
+
+      dstX := 0;
+      for srcX := 0 to xRes - 1 do
+        begin
+          colour := srcRow^[srcX];
+          for rep := 1 to pixelScale do
+            begin
+              dstRow^[dstX] := colour;
+              inc(dstX);
+            end;
+        end;
+
+      { the rows between are identical, so copy rather than rebuild }
+      for rep := 1 to pixelScale - 1 do
+        Move(dstRow^,
+             PPixelRow(PtrUInt(pixels) + PtrUInt((dstY + rep) * pitch))^,
+             texW * SizeOf(UInt32));
+    end;
 
   SDL_UnlockTexture(displayTexture);
+  if (timeFrames) then expandTicks := expandTicks + (SDL_GetPerformanceCounter - t1);
 
   // Render texture to display
   SDL_RenderCopy(renderer, displayTexture, nil, @renderDestRect);
   SDL_RenderPresent(renderer);
+
+  if (timeFrames) then
+    begin
+      dt := SDL_GetPerformanceCounter - t0;
+      renderTicks := renderTicks + dt;
+      inc(renderCount);
+      if (dt > renderPeak) then renderPeak := dt;
+    end;
 end;
 
 procedure WaitRaster;
