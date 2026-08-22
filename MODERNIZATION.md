@@ -89,7 +89,7 @@ Notes:
 `fpc -Mtp -a` and hashes the 14 emitted `.s` files; any change that is supposed
 to be behaviour-preserving must leave that hash alone. The current value is
 
-    50a9c8695d2a9e94b881c653a10a36b1ee0260dc863af3563959ad9d76fcab88
+    2584311d8b1782a79673ae9c0922e4c1e46ed11df3d0f04ef0af6ba089c33d16
 
 It held unchanged at `368f333b...` across the dead-code removal and the
 reformatting, proving those passes were pure no-ops. It moved deliberately when
@@ -737,8 +737,9 @@ Worth knowing before relying on this.
   in finished colours: about 57 MB together, rebuilt whenever the hill changes.
   Building them also costs a noticeable pause at hill load, which has not been
   measured.
-- **Cost.** Measured with `--frame-time` against the 14.3 ms budget: 5.9 ms
-  plain, 8.0 ms with the backdrop, 8.2 ms with the hill, 10-11 ms with both.
+- **Cost.** Measured with `--frame-time` during a jump, against the 14.3 ms
+  budget: about 9 ms with both layers on the software renderer. See section 12b
+  - the renderer matters more than the smoothing does.
   There is less headroom than there was, which matters because the simulation
   advances one step per rendered frame - overrun the tick and the game runs in
   slow motion rather than dropping frames. An earlier per-pixel version of
@@ -765,6 +766,44 @@ Worth knowing before relying on this.
 - **Smoothing is a taste decision.** Bilinear resampling softens art that was
   drawn pixel by pixel. It suits these backdrops, which are painterly already,
   but it is not automatically the right answer for every asset.
+
+## 12b. Why the renderer defaults to software
+
+The frame budget is 1000/70 ms, and overrunning it does not drop frames: the
+simulation advances one step per rendered frame, so the game runs in slow
+motion instead. That makes render cost a gameplay concern rather than a
+cosmetic one.
+
+Measured during a jump, on a machine reporting no hardware acceleration:
+
+| | OpenGL | software |
+|---|---|---|
+| original resolution, no smoothing | 14.2 ms | 14.1 ms |
+| 1280x800, both layers | 14.6-17.2 ms | 8.8-10.6 ms |
+
+Two things worth keeping in mind, because both are counter-intuitive.
+
+**Most of the cost is the resolution, not the smoothing.** Rendering at 1280x800
+with no smoothing at all already costs 14.2 ms. The high-resolution layers add
+about three milliseconds on top of a path that is already saturated.
+Pre-rendering nicer artwork would not help: the resampled images are already in
+memory, and the expense is compositing and uploading four megabytes of texture
+every frame.
+
+**The accelerated path is the slow one here.** Where OpenGL is a software
+implementation, `SDL_LockTexture` returns write-combined memory, and the
+per-frame copies into it cost about twice what they do against ordinary RAM -
+the expansion sub-total alone halves, 9.5 ms to 4.3 ms. The game asks nothing
+of a GPU beyond one full-screen texture per frame, so it pays for the
+abstraction and gets nothing back. Hence software by default, with
+`--gl-rendering` for machines that really do have a GPU.
+
+For the same reason the layered path is *faster* than the plain one on the
+software renderer, 8.4 ms against 14.1 ms: plain expansion writes a quarter of
+a million pixels individually, while the layered path is mostly `Move`.
+
+If more headroom is ever needed, `pixelScale` is one constant: 3 measures
+6.8 ms at 960x600.
 
 ## 12a. Testing the game without disturbing the desktop
 

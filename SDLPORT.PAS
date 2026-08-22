@@ -128,7 +128,7 @@ procedure GetArguments;
 
 var c : char;
   optionindex : Longint;
-  options : array[1..11] of TOption;
+  options : array[1..12] of TOption;
 
 begin
   with options[1] do
@@ -208,6 +208,13 @@ begin
       flag := nil;
       value := #0;
     end;
+  with options[12] do
+    begin
+      name := '--gl-rendering';
+      has_arg := 0;
+      flag := nil;
+      value := #0;
+    end;
   c := #0;
   optionindex := 0;
   repeat
@@ -260,6 +267,10 @@ begin
              if (options[optionindex].name = '--hires-front') then
                begin
                  hiresFront := true;
+               end;
+             if (options[optionindex].name = '--gl-rendering') then
+               begin
+                 swRendering := false;
                end;
            end;
       's' : swRendering := true;
@@ -362,7 +373,16 @@ begin
   rendererFlags := 0;
   windowMultiplier := pixelScale;
   aspect := aspectRes;
-  swRendering := false;
+  { Software rendering by default. The game hands SDL one full-screen texture
+    per frame and asks nothing else of the renderer, so there is little for a
+    GPU to do - but the accelerated path pays for one anyway. Where the driver
+    is a software implementation of OpenGL, SDL_LockTexture returns
+    write-combined memory and the per-frame copies into it cost about twice
+    what they do against ordinary RAM. Measured during a jump on a machine
+    reporting no acceleration: 14.6-17.2 ms through OpenGL against 8.8-10.6 ms
+    in software, on a 14.3 ms budget. --gl-rendering asks for the accelerated
+    path on machines that really have one. }
+  swRendering := true;
   practiceRun := false;
   timeFrames := false;
   hiresTest := false;
