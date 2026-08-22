@@ -5753,6 +5753,7 @@ begin  { MAIN }
 
   SDLPort.Init;
   SDLPort.SetCloseCallback(CloseAndHalt);
+  if (SDLPort.HiresTextEnabled) then SJ3Graph.InitHiresText;
 
   alku;
 

@@ -6,10 +6,22 @@ type TPalette = array[0..255,0..2] of byte;
 
 type TCloseCallback = procedure ;
 
+type TOverlayCallback = procedure ;
+
 function GetVersion : string;
 function PracticeMode : boolean;
 procedure ReportFrameTime;
 procedure InvalidateHiresBackdrop;
+
+{ Draw at texture resolution rather than logical resolution. SetOverlayCallback
+  registers something to run once per frame, after the logical frame has been
+  expanded and while the texture is still locked; PlotHiIndex is what it draws
+  with, taking texture coordinates and a palette index. }
+procedure SetOverlayCallback(callback : TOverlayCallback);
+procedure PlotHiIndex(x, y : integer; index : byte);
+procedure PlotHiBlend(x, y : integer; index, alpha : byte);
+function HiresTextEnabled : boolean;
+function PixelScaleFactor : integer;
 
 procedure Init;
 procedure DeinitGraphics;
@@ -80,6 +92,11 @@ var windowMultiplier: integer;
   hiBack: array of UInt32;
   hiBackReady: boolean;
   hiBackPalette: array[64..214] of TSDL_Color;
+  hiresText: boolean;
+  overlayCallback: TOverlayCallback;
+  { valid only while the overlay callback runs }
+  overlayPixels: Pointer;
+  overlayPitch: LongInt;
   renderTicks, renderCount, renderPeak: UInt64;
   expandTicks: UInt64;
 
@@ -87,7 +104,7 @@ procedure GetArguments;
 
 var c : char;
   optionindex : Longint;
-  options : array[1..5] of TOption;
+  options : array[1..6] of TOption;
 
 begin
   with options[1] do
@@ -125,6 +142,13 @@ begin
       flag := nil;
       value := #0;
     end;
+  with options[6] do
+    begin
+      name := '--hires-text';
+      has_arg := 0;
+      flag := nil;
+      value := #0;
+    end;
   c := #0;
   optionindex := 0;
   repeat
@@ -151,6 +175,10 @@ begin
              if (options[optionindex].name = '--hires-back') then
                begin
                  hiresBack := true;
+               end;
+             if (options[optionindex].name = '--hires-text') then
+               begin
+                 hiresText := true;
                end;
            end;
       's' : swRendering := true;
@@ -258,7 +286,10 @@ begin
   timeFrames := false;
   hiresTest := false;
   hiresBack := false;
+  hiresText := false;
   hiBackReady := false;
+  overlayCallback := nil;
+  overlayPixels := nil;
   renderTicks := 0;
   renderCount := 0;
   renderPeak := 0;
@@ -387,6 +418,71 @@ end;
 procedure InvalidateHiresBackdrop;
 begin
   hiBackReady := false;
+end;
+
+procedure SetOverlayCallback(callback : TOverlayCallback);
+begin
+  overlayCallback := callback;
+end;
+
+function HiresTextEnabled: boolean;
+begin
+  HiresTextEnabled := hiresText;
+end;
+
+function PixelScaleFactor: integer;
+begin
+  PixelScaleFactor := pixelScale;
+end;
+
+{ Blend a palette colour over what is already in the texture. Anti-aliased
+  glyph edges arrive as coverage values rather than as on or off, so they have
+  to be mixed with the background rather than overwriting it. }
+procedure PlotHiBlend(x, y : integer; index, alpha : byte);
+
+var fmt : PSDL_PixelFormat;
+    row : PPixelRow;
+    old : UInt32;
+    orr, og, ob, nr, ng, nb : LongInt;
+begin
+  if (overlayPixels = nil) or (alpha = 0) then exit;
+  if (x < 0) or (x >= texW) or (y < 0) or (y >= texH) then exit;
+  fmt := displaySurface^.format;
+  row := PPixelRow(PtrUInt(overlayPixels) + PtrUInt(y * overlayPitch));
+
+  if (alpha = 255) then
+    begin
+      row^[x] := (UInt32(palette[index].r) shl fmt^.Rshift) or
+                 (UInt32(palette[index].g) shl fmt^.Gshift) or
+                 (UInt32(palette[index].b) shl fmt^.Bshift) or fmt^.Amask;
+      exit;
+    end;
+
+  old := row^[x];
+  orr := (old and fmt^.Rmask) shr fmt^.Rshift;
+  og  := (old and fmt^.Gmask) shr fmt^.Gshift;
+  ob  := (old and fmt^.Bmask) shr fmt^.Bshift;
+
+  nr := (palette[index].r * alpha + orr * (255 - alpha)) div 255;
+  ng := (palette[index].g * alpha + og  * (255 - alpha)) div 255;
+  nb := (palette[index].b * alpha + ob  * (255 - alpha)) div 255;
+
+  row^[x] := (UInt32(nr) shl fmt^.Rshift) or
+             (UInt32(ng) shl fmt^.Gshift) or
+             (UInt32(nb) shl fmt^.Bshift) or fmt^.Amask;
+end;
+
+procedure PlotHiIndex(x, y : integer; index : byte);
+
+var fmt : PSDL_PixelFormat;
+begin
+  if (overlayPixels = nil) then exit;
+  if (x < 0) or (x >= texW) or (y < 0) or (y >= texH) then exit;
+  fmt := displaySurface^.format;
+  PPixelRow(PtrUInt(overlayPixels) + PtrUInt(y * overlayPitch))^[x] :=
+    (UInt32(palette[index].r) shl fmt^.Rshift) or
+    (UInt32(palette[index].g) shl fmt^.Gshift) or
+    (UInt32(palette[index].b) shl fmt^.Bshift) or fmt^.Amask;
 end;
 
 { Resample the backdrop to pixelScale resolution, once per hill.
@@ -666,6 +762,14 @@ begin
         Move(dstRow^,
              PPixelRow(PtrUInt(pixels) + PtrUInt((dstY + rep) * pitch))^,
              texW * SizeOf(UInt32));
+    end;
+
+  if (Assigned(overlayCallback)) then
+    begin
+      overlayPixels := pixels;
+      overlayPitch := pitch;
+      overlayCallback;
+      overlayPixels := nil;
     end;
 
   if (hiresTest) then DrawHiresTest(pixels, pitch);

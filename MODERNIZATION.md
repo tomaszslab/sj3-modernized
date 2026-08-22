@@ -78,6 +78,8 @@ Notes:
 | `./SJ3 --frame-time` | report average and peak Render cost against the frame budget |
 | `./SJ3 --hires-test` | overlay a test card proving the texture is really 1280x800 |
 | `./SJ3 --hires-back` | resample the backdrop to texture resolution (see section 12) |
+| `./SJ3 --hires-text` | draw text from a baked font atlas at texture resolution |
+| `./tools/makefont.py` | regenerate `FONTHI.DAT`, the high-resolution font atlas |
 | `./build.sh` | clone headers if missing, seed save files from `defaults/`, compile |
 | `./format.sh` | reformat all sources with ptop plus a cleanup pass |
 | `./tools/verify-codegen.sh` | print a hash of the emitted assembly |
@@ -87,7 +89,7 @@ Notes:
 `fpc -Mtp -a` and hashes the 14 emitted `.s` files; any change that is supposed
 to be behaviour-preserving must leave that hash alone. The current value is
 
-    98d280aa7faf4f73cbfb5402b4375d1449ae730f2899802cbf118d68422c7a65
+    44811752857c1bccc33018b07fe2255a5c657efa0ca2d1c2f80e800105c5e9a2
 
 It held unchanged at `368f333b...` across the dead-code removal and the
 reformatting, proving those passes were pure no-ops. It moved deliberately when
@@ -738,7 +740,55 @@ Worth knowing before relying on this.
   drawn pixel by pixel. It suits these backdrops, which are painterly already,
   but it is not automatically the right answer for every asset.
 
-## 13. Open questions for milestone 2
+## 13. High-resolution text
+
+`--hires-text` draws text from `FONTHI.DAT`, a font baked to texture resolution
+by `tools/makefont.py`, instead of expanding the original glyphs into blocks.
+
+The original font could not simply be sharpened. Its glyphs are six pixels
+tall, and upscaling cannot invent detail that was never there - an EPX pass was
+tried first and gained almost nothing, because the letterforms are almost
+entirely axis-aligned strokes and EPX only rounds diagonal corners. Getting
+genuinely crisp text meant new glyph data.
+
+Advance widths still come from the original glyphs in `ANIM.SKI`, so `FontLen`,
+right-aligned text and every existing screen position are unchanged. Only the
+shapes drawn inside those advances differ.
+
+`WriteFont` queues glyphs rather than drawing them, and `SDLPort` runs the queue
+through an overlay callback after the frame has been expanded, while the
+texture is still locked. That is also the general mechanism for drawing
+anything at texture resolution: `PlotHiIndex` writes a palette colour,
+`PlotHiBlend` mixes one in by coverage.
+
+Regenerate the atlas after changing the typeface or `pixelScale`:
+
+```sh
+python3 tools/makefont.py
+```
+
+The generator needs Pillow, but only when run; the game just loads the result.
+If `FONTHI.DAT` is missing or was built for a different scale, the game says so
+and falls back to drawing text the original way.
+
+### Known regression
+
+**The glyph outline is gone.** The original font is two-tone - a body colour
+plus a black outline in palette index 242 - and that outline is what holds the
+HUD legible against a bright sky. The baked atlas stores a single coverage
+channel and paints it in the body colour only, so the outline is lost. It costs
+real legibility over busy backgrounds and should be fixed: the generator can
+emit a dilated outline channel, and the runtime can draw outline before body.
+
+### It is a different typeface
+
+Not the original at higher resolution. `FONTHI.DAT` is currently DejaVu Sans
+Bold, a modern grotesque, where the original is a condensed pixel face. That
+was the unavoidable consequence of needing real glyph data. If the original
+identity matters more than sharpness, the alternative is to redraw the 59
+glyphs by hand at `pixelScale` - the one option here that needs drawing effort.
+
+## 14. Open questions for milestone 2
 
 **Where does higher-resolution art live?** The current architecture gives one
 lever: the `Video` buffer's dimensions. Raising them means raising the hill

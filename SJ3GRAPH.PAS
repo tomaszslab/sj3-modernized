@@ -26,14 +26,40 @@ procedure alertbox;
 procedure WriteVideo;
 
 function NumofAnims: byte;
+procedure InitHiresText;
+function HiresFontLoaded : boolean;
 
 implementation
 
 uses Maki, SJ3PCX, SJ3Help, SDLPort;
 
+const MaxGlyph = 60;        { Anim[1..60] are the font }
+      BodyMark  = 1;        { stands in for whatever colour fontcolor set }
+      OutlineIx = 242;      { the glyph outline, which fontcolor leaves alone }
+      MaxQueued = 512;
+
+type TGlyphDraw = record
+       x, y : integer;      { texture coordinates }
+       glyph : byte;
+       colour : byte;
+     end;
+
 var Anim : array[0..200] of array of byte;
   AnimP : array[0..200,0..1] of byte;
   NumAnim : byte;
+
+  { A real typeface baked to texture resolution by tools/makefont.py. The
+    original six-pixel glyphs hold too little detail to upscale usefully, so
+    the shapes come from a proper font while the advances stay as they were,
+    which keeps every existing layout lining up. Coverage, not colour: the
+    bytes are alpha, and the colour comes from whatever fontcolor last set. }
+  HiFont : array[1..MaxGlyph] of array of byte;
+  HiFontW, HiFontH, HiFontOX, HiFontOY : array[1..MaxGlyph] of integer;
+  HiFontLoaded : boolean;
+
+  CurFontColour : byte;
+  Queued : array[0..MaxQueued-1] of TGlyphDraw;
+  NumQueued : integer;
 
 function NumofAnims: byte;
 begin
@@ -306,6 +332,104 @@ begin
 
 end;
 
+{ Load the baked font atlas. Missing or malformed leaves HiFontLoaded false
+  and the game falls back to drawing text the original way. }
+procedure LoadHiresFont(filename : string);
+
+var f : file;
+    magic : array[0..3] of char;
+    ver, scale, count, bw, bh : byte;
+    ox, oy : shortint;
+    g, got : integer;
+begin
+  HiFontLoaded := false;
+  assign(f, filename);
+  {$I-}
+  reset(f, 1);
+  {$I+}
+  if (IOResult <> 0) then exit;
+
+  blockread(f, magic, 4, got);
+  if (got <> 4) or (magic[0] <> 'S') or (magic[1] <> 'J') or
+     (magic[2] <> 'H') or (magic[3] <> 'F') then
+    begin close(f); exit; end;
+
+  blockread(f, ver, 1, got);
+  blockread(f, scale, 1, got);
+  blockread(f, count, 1, got);
+  if (ver <> 1) or (scale <> SDLPort.PixelScaleFactor) then
+    begin close(f); exit; end;
+
+  for g := 1 to count do
+    begin
+      blockread(f, bw, 1, got); if (got <> 1) then break;
+      blockread(f, bh, 1, got);
+      blockread(f, ox, 1, got);
+      blockread(f, oy, 1, got);
+      if (g > MaxGlyph) then continue;
+      HiFontW[g] := bw; HiFontH[g] := bh;
+      HiFontOX[g] := ox; HiFontOY[g] := oy;
+      if (bw = 0) or (bh = 0) then continue;
+      SetLength(HiFont[g], bw*bh);
+      blockread(f, HiFont[g][0], bw*bh, got);
+    end;
+
+  close(f);
+  HiFontLoaded := true;
+end;
+
+{ Draw the glyphs collected this frame, at texture resolution. Registered with
+  SDLPort as the overlay callback, so it runs after the logical frame has been
+  expanded - which also means text always lands on top. }
+procedure DrawQueuedText;
+
+var i, x, y, g, scale : integer;
+begin
+  scale := SDLPort.PixelScaleFactor;
+
+  for i := 0 to NumQueued-1 do
+    begin
+      g := Queued[i].glyph;
+      if (g < 1) or (g > MaxGlyph) or (Length(HiFont[g]) = 0) then continue;
+
+      for y := 0 to HiFontH[g]-1 do
+        for x := 0 to HiFontW[g]-1 do
+          SDLPort.PlotHiBlend(Queued[i].x*scale + HiFontOX[g] + x,
+                              Queued[i].y*scale + HiFontOY[g] + y,
+                              Queued[i].colour,
+                              HiFont[g][y*HiFontW[g] + x]);
+    end;
+
+  NumQueued := 0;
+end;
+
+procedure InitHiresText;
+begin
+  CurFontColour := 247;
+  NumQueued := 0;
+  LoadHiresFont('FONTHI.DAT');
+  if (HiFontLoaded) then
+    SDLPort.SetOverlayCallback(SDLPort.TOverlayCallback(@DrawQueuedText))
+  else
+    writeln('FONTHI.DAT missing or unusable - drawing text the original way.');
+end;
+
+function HiresFontLoaded : boolean;
+begin
+  HiresFontLoaded := HiFontLoaded;
+end;
+
+procedure QueueGlyph(x, y : integer; num : byte);
+begin
+  if (NumQueued >= MaxQueued) then exit;
+  if (num < 1) or (num > MaxGlyph) then exit;
+  Queued[NumQueued].x := x - AnimP[num,0];
+  Queued[NumQueued].y := y - AnimP[num,1];
+  Queued[NumQueued].glyph := num;
+  Queued[NumQueued].colour := CurFontColour;
+  inc(NumQueued);
+end;
+
 procedure PutPixel(x,y,c:integer);
 
 var x1, y1 : word;
@@ -391,7 +515,11 @@ begin
       if (t<>100) then
         begin
           inc(t);
-          if (Draw) then drawanim(xx+p,yy,t); { t+? riippuu muista animeista! }
+          if (Draw) then
+            begin
+              if (SDLPort.HiresTextEnabled) and (HiFontLoaded) then QueueGlyph(xx+p,yy,t)
+              else drawanim(xx+p,yy,t); { t+? riippuu muista animeista! }
+            end;
 {   inc(p,memW[Anim[t]:0]+1); }  { vanhoilla fonteilla }
           increment := Anim[t][0] + (Anim[t][1] shl 8);
           inc(p,increment);
@@ -426,6 +554,8 @@ procedure fontcolor(col:byte);
 var temp,x,y,xx,yy : word;
   tempb : byte;
 begin
+
+  CurFontColour := col;
 
   for temp:=1 to 60 do
     begin
