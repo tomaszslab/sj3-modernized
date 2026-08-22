@@ -78,7 +78,7 @@ Notes:
 | `./SJ3 --frame-time` | report average and peak Render cost against the frame budget |
 | `./SJ3 --hires-test` | overlay a test card proving the texture is really 1280x800 |
 | `./SJ3 --no-hires` | render the original way; also how the pixel-identity check is run |
-| `./SJ3 --no-hires-text`, `--no-hires-back` | disable one high-resolution layer |
+| `./SJ3 --no-hires-text`, `--no-hires-back`, `--no-hires-front` | disable one high-resolution layer |
 | `./tools/makefont.py` | regenerate `FONTHI.DAT`, the high-resolution font atlas |
 | `./build.sh` | clone headers if missing, seed save files from `defaults/`, compile |
 | `./format.sh` | reformat all sources with ptop plus a cleanup pass |
@@ -89,7 +89,7 @@ Notes:
 `fpc -Mtp -a` and hashes the 14 emitted `.s` files; any change that is supposed
 to be behaviour-preserving must leave that hash alone. The current value is
 
-    a6a8deecb4db26339170e370cad45a256934c8f6582e90bbcb09daeb71c23e14
+    50a9c8695d2a9e94b881c653a10a36b1ee0260dc863af3563959ad9d76fcab88
 
 It held unchanged at `368f333b...` across the dead-code removal and the
 reformatting, proving those passes were pure no-ops. It moved deliberately when
@@ -689,7 +689,7 @@ Each commit builds and runs on its own.
 
 ---
 
-## 12. The high-resolution backdrop
+## 12. The high-resolution hill and backdrop
 
 The backdrop is resampled to `pixelScale` resolution and
 samples it per texture pixel, instead of expanding it into blocks like
@@ -697,11 +697,30 @@ everything else. It is the first layer to get real detail, chosen because
 `LaskeLinjat` never reads it: the backdrop is purely decorative, so smoothing
 it cannot affect the hill profile, the profile checksum, or the physics.
 
-The foreground is a different problem. It is both the art and the collision
-surface, and a naive smooth upscale blurs the snow-against-sky silhouette,
-which is the visual ground line. Doing it properly means smoothing the interior
-while rebuilding the edge from the original transparency mask - scriptable, but
-not done here.
+### The hill, and why its silhouette is the interesting part
+
+The hill gets the same treatment, with one difference that matters. Its
+interior is resampled like the backdrop and gains nothing but the loss of
+blockiness. Its **silhouette does genuinely gain detail**, because it is not
+stored as pixels at all: `KopioiMaki` never tests a pixel for transparency, it
+uses `LinjanPituus`, the rightmost solid column of each row. The edge is 512
+numbers, and numbers can be interpolated.
+
+Measured on Kuopio, that boundary advances two or three columns per row, so at
+`pixelScale` each source row became an eight to twelve pixel horizontal jog -
+the staircase along the hill's edge. Interpolating between neighbouring row
+extents gives every texture row its own fractional boundary, rasterised with
+coverage. The smooth curve was always there; 1024 columns just could not hold
+it. That is reconstruction, not invention, and it is the one place in this
+whole effort where upscaling adds something real.
+
+Not every step is a curve, though. Of Kuopio's 496 rows, about 90% step by
+three columns or less, but twenty-two step by more - one by 42. Those are the
+takeoff lip and the tower, and interpolating them would round real features
+into ramps. Steps beyond `edgeSmoothLimit` are left exactly as drawn.
+
+The hill's physics is untouched regardless: `LaskeLinjat` and `ProfiiliY` keep
+reading the original 1024x512, and the resampled copy is display-only.
 
 ### How overlays survive
 
@@ -714,12 +733,19 @@ are replaced by resampled ones. No game code changed.
 
 Worth knowing before relying on this.
 
-- **Memory.** The resampled backdrop is 4096x1600 in finished colours, about
-  25 MB, rebuilt whenever the hill changes.
-- **Cost is unmeasured.** The layered path cannot use the row-copy shortcut the
-  plain expansion relies on, because pixels differ within a 4x4 block, so it is
-  certainly slower. How much slower has not been measured - run
-  `--hires-back --frame-time` and compare against `--frame-time` alone.
+- **Memory.** The resampled backdrop is 4096x1600 and the hill 4096x2048, both
+  in finished colours: about 57 MB together, rebuilt whenever the hill changes.
+  Building them also costs a noticeable pause at hill load, which has not been
+  measured.
+- **Cost.** Measured with `--frame-time` against the 14.3 ms budget: 5.9 ms
+  plain, 8.0 ms with the backdrop, 8.2 ms with the hill, 10-11 ms with both.
+  There is less headroom than there was, which matters because the simulation
+  advances one step per rendered frame - overrun the tick and the game runs in
+  slow motion rather than dropping frames. An earlier per-pixel version of
+  ExpandLayered cost 19.6 ms and did exactly that. It is written as spans now:
+  along a texture row the hill and the backdrop are both contiguous in their
+  resampled buffers and aligned with the destination, so most of the row is two
+  memory copies, and only the pixels straddling the silhouette need arithmetic.
 - **Layering.** `SDLPort` now `uses Maki` so it can read the camera, the row
   extents and the frame snapshot. That is the platform layer reaching into game
   state, and should be tidied if this becomes permanent.
@@ -739,6 +765,25 @@ Worth knowing before relying on this.
 - **Smoothing is a taste decision.** Bilinear resampling softens art that was
   drawn pixel by pixel. It suits these backdrops, which are painterly already,
   but it is not automatically the right answer for every asset.
+
+## 12a. Testing the game without disturbing the desktop
+
+Screenshots and scripted input go through an isolated X server:
+
+```sh
+Xvfb :99 -screen 0 1920x1080x24 &
+DISPLAY=:99 ./SJ3 --practice
+```
+
+This is not a nicety. Driving the game means injecting keystrokes with XTEST,
+and XTEST delivers to whatever holds focus - so a run that starts before the
+window appears, or dies early, types into the developer's editor instead. Worse,
+a script killed between key-down and key-up leaves the key *held* in the X
+server, and every window opened afterwards sees it repeating. An Escape stuck
+that way made the game appear to quit instantly on launch, which cost a while to
+diagnose because it looked exactly like a bug in the game.
+
+So: run on `:99`, and release every key on exit.
 
 ## 13. High-resolution text
 

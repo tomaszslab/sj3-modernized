@@ -57,6 +57,23 @@ const version: string = 'SP5';
   backH = 400;
   hiBackW = backW * pixelScale;
   hiBackH = backH * pixelScale;
+  { The hill itself, which is Graffa's first page. }
+  frontW = 1024;
+  frontH = 512;
+  hiFrontW = frontW * pixelScale;
+  hiFrontH = frontH * pixelScale;
+  { Row extents differing by more than this between neighbouring rows are a
+    real feature of the hill - the takeoff lip, the tower - and are left as
+    drawn. Anything gentler is a smooth curve that 1024 columns could not
+    represent, and is reconstructed. }
+  edgeSmoothLimit = 4;
+  edgeFixed = 256;   { boundary positions are kept in 1/256 hi-res pixels }
+  { The hill is drawn with a dark rim along its top edge, two or three
+    pixels wide. Upscaled it is a staircase four times as coarse, so it is
+    stripped out of the resample and redrawn along the reconstructed
+    boundary instead, at a thickness chosen here rather than inherited. }
+  rimSource = 4;     { source pixels of rim to strip }
+  rimHi = 5;         { hi-res pixels of rim to draw back }
   targetFrames = 70;
   aspectRes: real = xRes / yRes;
   msPerTick: real = 1000 / 18.2065; { typical IBM PC PIT system clock tick rate }
@@ -91,7 +108,14 @@ var windowMultiplier: integer;
     smoothing it cannot affect the hill profile or the physics. }
   hiBack: array of UInt32;
   hiBackReady: boolean;
-  hiBackPalette: array[64..214] of TSDL_Color;
+  { The hill at texture resolution, and its silhouette rebuilt from the row
+    extents rather than upscaled from pixels - see BuildHiresForeground. }
+  hiFront: array of UInt32;
+  hiEdge: array of LongInt;
+  hiFrontReady: boolean;
+  hiresFront: boolean;
+  hiRim: UInt32;
+  hiBackPalette: array[0..214] of TSDL_Color;
   hiresText: boolean;
   overlayCallback: TOverlayCallback;
   { valid only while the overlay callback runs }
@@ -104,7 +128,7 @@ procedure GetArguments;
 
 var c : char;
   optionindex : Longint;
-  options : array[1..9] of TOption;
+  options : array[1..11] of TOption;
 
 begin
   with options[1] do
@@ -170,6 +194,20 @@ begin
       flag := nil;
       value := #0;
     end;
+  with options[10] do
+    begin
+      name := '--no-hires-front';
+      has_arg := 0;
+      flag := nil;
+      value := #0;
+    end;
+  with options[11] do
+    begin
+      name := '--hires-front';
+      has_arg := 0;
+      flag := nil;
+      value := #0;
+    end;
   c := #0;
   optionindex := 0;
   repeat
@@ -205,6 +243,7 @@ begin
                begin
                  hiresText := false;
                  hiresBack := false;
+                 hiresFront := false;
                end;
              if (options[optionindex].name = '--no-hires-text') then
                begin
@@ -213,6 +252,14 @@ begin
              if (options[optionindex].name = '--no-hires-back') then
                begin
                  hiresBack := false;
+               end;
+             if (options[optionindex].name = '--no-hires-front') then
+               begin
+                 hiresFront := false;
+               end;
+             if (options[optionindex].name = '--hires-front') then
+               begin
+                 hiresFront := true;
                end;
            end;
       's' : swRendering := true;
@@ -323,8 +370,10 @@ begin
     unless asked otherwise. --no-hires restores the original rendering, which
     is also how the pixel-identity regression check is run. }
   hiresBack := true;
+  hiresFront := true;
   hiresText := true;
   hiBackReady := false;
+  hiFrontReady := false;
   overlayCallback := nil;
   overlayPixels := nil;
   renderTicks := 0;
@@ -436,13 +485,14 @@ begin
     the palette range it was built from changes. LoadHill leaves the previous
     hill's palette in place until the game calls AsetaPaletti, which is after
     the first frame is drawn, so keying off the hill alone is not enough. }
-  for index := 64 to 214 do
+  for index := 0 to 214 do
     if (palette[index].r <> hiBackPalette[index].r) or
        (palette[index].g <> hiBackPalette[index].g) or
        (palette[index].b <> hiBackPalette[index].b) then
       begin
         hiBackReady := false;
-        Move(palette[64], hiBackPalette[64], 151 * SizeOf(TSDL_Color));
+        hiFrontReady := false;
+        Move(palette[0], hiBackPalette[0], 215 * SizeOf(TSDL_Color));
         break;
       end;
 end;
@@ -455,6 +505,7 @@ end;
 procedure InvalidateHiresBackdrop;
 begin
   hiBackReady := false;
+  hiFrontReady := false;
 end;
 
 procedure SetOverlayCallback(callback : TOverlayCallback);
@@ -610,6 +661,144 @@ begin
   hiBackReady := true;
 end;
 
+{ Resample the hill to texture resolution, and rebuild its silhouette.
+
+  Two different jobs. The interior is resampled the same way as the backdrop,
+  which removes the blockiness but adds nothing that was not there. The
+  silhouette is different: KopioiMaki does not test each pixel for
+  transparency, it uses LinjanPituus - the rightmost solid column of each row -
+  so the edge is stored as 512 numbers rather than as pixels. Those numbers can
+  be interpolated, which recovers a smooth curve the 1024-column grid could not
+  hold. That is reconstruction rather than invention, and it is the only part
+  of this that genuinely gains detail.
+
+  Steps larger than edgeSmoothLimit are left alone; they are the takeoff lip
+  and the tower, and rounding them off would deform the hill. }
+procedure BuildHiresForeground;
+
+var pr, pg, pb : array[0..255] of LongInt;
+    fmt : PSDL_PixelFormat;
+    filled : array of byte;
+    ext : array[0..frontH-1] of LongInt;
+    i, x, y, hx, hy, x0, x1, y0, y1, fx, fy : LongInt;
+    c00, c01, c10, c11, top, bot, r, g, b : LongInt;
+    weights : array[0..pixelScale-1] of LongInt;
+    lastSolid, a, bnd, step, rimIx : LongInt;
+    rimSeen : array[0..255] of LongInt;
+begin
+  if (Length(Maki.Graffa) < frontW * frontH) then exit;
+
+  if (Length(hiFront) <> hiFrontW * hiFrontH) then
+    SetLength(hiFront, hiFrontW * hiFrontH);
+  if (Length(hiEdge) <> hiFrontH) then SetLength(hiEdge, hiFrontH);
+  SetLength(filled, frontW * frontH);
+
+  fmt := displaySurface^.format;
+  for i := 0 to 255 do
+    begin
+      pr[i] := palette[i].r; pg[i] := palette[i].g; pb[i] := palette[i].b;
+      rimSeen[i] := 0;
+    end;
+  for i := 0 to pixelScale-1 do
+    weights[i] := ((i + pixelScale - 2) mod pixelScale) * 2 + 1;
+
+  { Row extents, and a copy of the hill with the transparent margin filled by
+    the last solid colour of its row, so that resampling near the silhouette
+    does not drag the void inwards. }
+  for y := 0 to frontH-1 do
+    begin
+      lastSolid := 0;
+      ext[y] := 0;
+      for x := 0 to frontW-1 do
+        begin
+          a := Maki.Graffa[y*frontW + x];
+          if (a <> 0) then begin lastSolid := a; ext[y] := x+1; end;
+          filled[y*frontW + x] := lastSolid;
+        end;
+
+      { Strip the rim: walk back from the edge over pixels matching the
+        outermost colour, then flood that row's tail with what lies inside. }
+      if (ext[y] > rimSource + 1) then
+        begin
+          rimIx := filled[y*frontW + ext[y] - 1];
+          x := ext[y] - 1;
+          i := 0;
+          while (i < rimSource) and (x > 0) and
+                (filled[y*frontW + x] = rimIx) do
+            begin dec(x); inc(i); end;
+          a := filled[y*frontW + x];
+          for x := x+1 to frontW-1 do filled[y*frontW + x] := a;
+          rimSeen[rimIx] := rimSeen[rimIx] + 1;
+        end;
+    end;
+
+  { the rim colour is whichever index bordered the most rows }
+  a := 0; lastSolid := 0;
+  for i := 0 to 255 do
+    if (rimSeen[i] > a) then begin a := rimSeen[i]; lastSolid := i; end;
+  hiRim := (UInt32(palette[lastSolid].r) shl fmt^.Rshift) or
+           (UInt32(palette[lastSolid].g) shl fmt^.Gshift) or
+           (UInt32(palette[lastSolid].b) shl fmt^.Bshift) or fmt^.Amask;
+
+  { Silhouette: one fractional boundary per texture row. }
+  for hy := 0 to hiFrontH-1 do
+    begin
+      y0 := hy div pixelScale;
+      y1 := y0 + 1;
+      if (y1 > frontH-1) then y1 := frontH-1;
+      step := ext[y1] - ext[y0];
+      if (ext[y0] = 0) or (ext[y1] = 0) or (abs(step) > edgeSmoothLimit) then
+        bnd := ext[y0] * pixelScale * edgeFixed
+      else
+        bnd := (ext[y0] * pixelScale * edgeFixed) +
+               ((step * pixelScale * edgeFixed * (hy mod pixelScale)) div pixelScale);
+      hiEdge[hy] := bnd;
+    end;
+
+  { Interior. }
+  for hy := 0 to hiFrontH-1 do
+    begin
+      y0 := (hy - 2) div pixelScale;
+      if (hy < 2) then y0 := -1;
+      fy := weights[hy mod pixelScale];
+      y1 := y0 + 1;
+      if (y0 < 0) then y0 := 0;
+      if (y1 > frontH-1) then y1 := frontH-1;
+      if (y0 > frontH-1) then y0 := frontH-1;
+
+      for hx := 0 to hiFrontW-1 do
+        begin
+          x0 := (hx - 2) div pixelScale;
+          if (hx < 2) then x0 := -1;
+          fx := weights[hx mod pixelScale];
+          x1 := x0 + 1;
+          if (x0 < 0) then x0 := 0;
+          if (x1 > frontW-1) then x1 := frontW-1;
+          if (x0 > frontW-1) then x0 := frontW-1;
+
+          c00 := filled[y0*frontW + x0]; c10 := filled[y0*frontW + x1];
+          c01 := filled[y1*frontW + x0]; c11 := filled[y1*frontW + x1];
+
+          top := pr[c00]*(8-fx) + pr[c10]*fx;
+          bot := pr[c01]*(8-fx) + pr[c11]*fx;
+          r := (top*(8-fy) + bot*fy) div 64;
+          top := pg[c00]*(8-fx) + pg[c10]*fx;
+          bot := pg[c01]*(8-fx) + pg[c11]*fx;
+          g := (top*(8-fy) + bot*fy) div 64;
+          top := pb[c00]*(8-fx) + pb[c10]*fx;
+          bot := pb[c01]*(8-fx) + pb[c11]*fx;
+          b := (top*(8-fy) + bot*fy) div 64;
+
+          hiFront[hy*hiFrontW + hx] :=
+            (UInt32(r) shl fmt^.Rshift) or (UInt32(g) shl fmt^.Gshift) or
+            (UInt32(b) shl fmt^.Bshift) or fmt^.Amask;
+        end;
+    end;
+
+  SetLength(filled, 0);
+  hiFrontReady := true;
+end;
+
 { Plot a single texture pixel. Coordinates are texture pixels, not logical
   ones, so this can address detail four times finer than the game can. }
 procedure PlotHi(pixels : Pointer; pitch, x, y : LongInt; colour : UInt32);
@@ -676,57 +865,156 @@ begin
           PlotHi(pixels, pitch, 284 + x, 84 + i*4 + by, amber);
 end;
 
-{ Expansion with the high-resolution backdrop layered in.
+{ Mix two finished pixels. }
+function MixPixel(lo, hi : UInt32; t, scale : LongInt) : UInt32;
 
-  A logical pixel is replaced by resampled backdrop only where two things
-  hold: the hill does not cover it - LinjanPituus says the row ends before
-  this column - and the game has not drawn over it since Tulosta ran. Anything
-  the game drew, sprites and snow and text, is still expanded into blocks, so
-  it keeps its original look and its original position. }
+var fmt : PSDL_PixelFormat;
+    r, g, b : LongInt;
+begin
+  fmt := displaySurface^.format;
+  r := ((((hi and fmt^.Rmask) shr fmt^.Rshift) * t) +
+        (((lo and fmt^.Rmask) shr fmt^.Rshift) * (scale - t))) div scale;
+  g := ((((hi and fmt^.Gmask) shr fmt^.Gshift) * t) +
+        (((lo and fmt^.Gmask) shr fmt^.Gshift) * (scale - t))) div scale;
+  b := ((((hi and fmt^.Bmask) shr fmt^.Bshift) * t) +
+        (((lo and fmt^.Bmask) shr fmt^.Bshift) * (scale - t))) div scale;
+  MixPixel := (UInt32(r) shl fmt^.Rshift) or (UInt32(g) shl fmt^.Gshift) or
+              (UInt32(b) shl fmt^.Bshift) or fmt^.Amask;
+end;
+
+{ Expansion with the high-resolution layers mixed in.
+
+  A logical pixel is only replaced where the game has not drawn over it since
+  Tulosta ran; anything it drew - sprites, snow, text - is still expanded into
+  blocks so it keeps its original look and position. Everything else is either
+  hill or backdrop, decided per texture pixel against the reconstructed
+  silhouette rather than per logical pixel against LinjanPituus, which is what
+  removes the staircase along the hill's edge. }
+{ Expansion with the high-resolution layers mixed in.
+
+  Laid out as spans rather than pixel by pixel. Along a texture row the hill
+  and the backdrop are both contiguous in their resampled buffers and aligned
+  with the destination, so the bulk of the row is two memory copies; only the
+  few pixels straddling the silhouette need coverage arithmetic. Whatever the
+  game drew over the frame since Tulosta ran is written back afterwards, so it
+  keeps its original blocky look and its exact position. }
 procedure ExpandLayered(pixels : Pointer; pitch : LongInt);
 
 var srcRow, dstRow : PPixelRow;
     srcX, srcY, dstX, dstY, sub, rep : LongInt;
-    colour : UInt32;
-    camX, camY, backOffX, backOffY, bx, by, hiY, li : LongInt;
+    colour, hillPix, backPix : UInt32;
+    camX, camY, backOffX, backOffY, li : LongInt;
+    fHiY, bHiY, bnd, bnd2, cov, edgeLocal : LongInt;
+    sample, sub2, rim, rimT, hillEnd, skyStart, frontBase, backBase : LongInt;
+    haveFront, haveBack, rowFront : boolean;
 begin
   camX := Maki.X;
   camY := Maki.Y;
   backOffX := camX - (camX div 2);
   backOffY := camY - (camY div 2);
+  haveFront := hiresFront and hiFrontReady;
+  haveBack  := hiresBack and hiBackReady;
 
   for dstY := 0 to texH - 1 do
     begin
       srcY := dstY div pixelScale;
-      sub := dstY mod pixelScale;
+      sub  := dstY mod pixelScale;
       srcRow := PPixelRow(PtrUInt(displaySurface^.pixels) +
                           PtrUInt(srcY * displaySurface^.pitch));
       dstRow := PPixelRow(PtrUInt(pixels) + PtrUInt(dstY * pitch));
 
-      by := srcY + backOffY;
-      hiY := by * pixelScale + sub;
+      fHiY := camY * pixelScale + dstY;
+      bHiY := (srcY + backOffY) * pixelScale + sub;
+      { where each resampled row starts, in destination coordinates }
+      frontBase := fHiY * hiFrontW + camX * pixelScale;
+      backBase  := bHiY * hiBackW + backOffX * pixelScale;
 
-      dstX := 0;
+      rowFront := haveFront and (fHiY >= 0) and (fHiY < hiFrontH);
+      bnd := 0; bnd2 := 0;
+      if (rowFront) then
+        begin
+          bnd := hiEdge[fHiY];
+          if (fHiY + 1 < hiFrontH) then bnd2 := hiEdge[fHiY + 1] else bnd2 := bnd;
+          edgeLocal := (((bnd + bnd2) div 2) shr 8) - camX * pixelScale;
+          hillEnd  := edgeLocal - rimHi - 2;
+          skyStart := edgeLocal + 2;
+        end
+      else
+        begin
+          { no reconstructed silhouette: split on the logical row extent }
+          hillEnd  := (Maki.LinjanPituus[srcY + camY] - camX) * pixelScale;
+          skyStart := hillEnd;
+        end;
+      if (hillEnd < 0) then hillEnd := 0;
+      if (hillEnd > texW) then hillEnd := texW;
+      if (skyStart < hillEnd) then skyStart := hillEnd;
+      if (skyStart > texW) then skyStart := texW;
+
+      { --- hill, in one copy --- }
+      if (hillEnd > 0) then
+        begin
+          if (rowFront) then
+            Move(hiFront[frontBase], dstRow^[0], hillEnd * SizeOf(UInt32))
+          else
+            for dstX := 0 to hillEnd - 1 do
+              dstRow^[dstX] := srcRow^[dstX div pixelScale];
+        end;
+
+      { --- backdrop, in one copy --- }
+      if (skyStart < texW) then
+        begin
+          if (haveBack) and (bHiY >= 0) and (bHiY < hiBackH) then
+            Move(hiBack[backBase + skyStart], dstRow^[skyStart],
+                 (texW - skyStart) * SizeOf(UInt32))
+          else
+            for dstX := skyStart to texW - 1 do
+              dstRow^[dstX] := srcRow^[dstX div pixelScale];
+        end;
+
+      { --- the handful of pixels across the edge --- }
+      for dstX := hillEnd to skyStart - 1 do
+        begin
+          backPix := srcRow^[dstX div pixelScale];
+          if (haveBack) and (bHiY >= 0) and (bHiY < hiBackH) then
+            backPix := hiBack[backBase + dstX];
+
+          cov := 0;
+          for sample := 0 to 3 do
+            begin
+              sub2 := bnd + ((bnd2 - bnd) * (sample*2+1)) div 8
+                          - (camX * pixelScale + dstX) * edgeFixed;
+              if (sub2 > edgeFixed) then sub2 := edgeFixed;
+              if (sub2 < 0) then sub2 := 0;
+              cov := cov + sub2;
+            end;
+          cov := cov div 4;
+
+          if (cov = 0) then dstRow^[dstX] := backPix
+          else
+            begin
+              hillPix := hiFront[frontBase + dstX];
+              rim := ((bnd + bnd2) div 2) - (camX * pixelScale + dstX) * edgeFixed;
+              if (rim < rimHi * edgeFixed) then
+                begin
+                  rimT := (rimHi * edgeFixed) - rim;
+                  if (rimT > edgeFixed) then rimT := edgeFixed;
+                  if (rimT < 0) then rimT := 0;
+                  hillPix := MixPixel(hillPix, hiRim, rimT, edgeFixed);
+                end;
+              if (cov = edgeFixed) then dstRow^[dstX] := hillPix
+              else dstRow^[dstX] := MixPixel(backPix, hillPix, cov, edgeFixed);
+            end;
+        end;
+
+      { --- put back whatever the game drew on top --- }
       for srcX := 0 to xRes - 1 do
         begin
           li := srcY * xRes + srcX;
-          bx := srcX + backOffX;
-
-          if (Maki.Video[li] = Maki.VideoBase[li]) and
-             (srcX + camX >= Maki.LinjanPituus[srcY + camY]) and
-             (hiY >= 0) and (hiY < hiBackH) and
-             (bx >= 0) and (bx < backW) then
-            begin
-              for rep := 0 to pixelScale - 1 do
-                begin
-                  dstRow^[dstX] := hiBack[hiY * hiBackW + bx * pixelScale + rep];
-                  inc(dstX);
-                end;
-            end
-          else
+          if (Maki.Video[li] <> Maki.VideoBase[li]) then
             begin
               colour := srcRow^[srcX];
-              for rep := 1 to pixelScale do
+              dstX := srcX * pixelScale;
+              for rep := 0 to pixelScale - 1 do
                 begin
                   dstRow^[dstX] := colour;
                   inc(dstX);
@@ -771,10 +1059,12 @@ begin
   if (timeFrames) then t1 := SDL_GetPerformanceCounter;
 
   if (hiresBack) and (not hiBackReady) then BuildHiresBackdrop;
+  if (hiresFront) and (not hiFrontReady) then BuildHiresForeground;
 
   SDL_LockTexture(displayTexture, nil, @pixels, @pitch);
 
-  if (hiresBack) and (hiBackReady) then ExpandLayered(pixels, pitch)
+  if ((hiresBack) and (hiBackReady)) or ((hiresFront) and (hiFrontReady)) then
+    ExpandLayered(pixels, pitch)
   else
   for srcY := 0 to yRes - 1 do
     begin
