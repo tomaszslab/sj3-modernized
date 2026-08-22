@@ -77,8 +77,8 @@ Notes:
 | `./SJ3 --practice` | skip the menus, jump straight in on the first hill |
 | `./SJ3 --frame-time` | report average and peak Render cost against the frame budget |
 | `./SJ3 --hires-test` | overlay a test card proving the texture is really 1280x800 |
-| `./SJ3 --hires-back` | resample the backdrop to texture resolution (see section 12) |
-| `./SJ3 --hires-text` | draw text from a baked font atlas at texture resolution |
+| `./SJ3 --no-hires` | render the original way; also how the pixel-identity check is run |
+| `./SJ3 --no-hires-text`, `--no-hires-back` | disable one high-resolution layer |
 | `./tools/makefont.py` | regenerate `FONTHI.DAT`, the high-resolution font atlas |
 | `./build.sh` | clone headers if missing, seed save files from `defaults/`, compile |
 | `./format.sh` | reformat all sources with ptop plus a cleanup pass |
@@ -89,7 +89,7 @@ Notes:
 `fpc -Mtp -a` and hashes the 14 emitted `.s` files; any change that is supposed
 to be behaviour-preserving must leave that hash alone. The current value is
 
-    44811752857c1bccc33018b07fe2255a5c657efa0ca2d1c2f80e800105c5e9a2
+    a6a8deecb4db26339170e370cad45a256934c8f6582e90bbcb09daeb71c23e14
 
 It held unchanged at `368f333b...` across the dead-code removal and the
 reformatting, proving those passes were pure no-ops. It moved deliberately when
@@ -691,7 +691,7 @@ Each commit builds and runs on its own.
 
 ## 12. The high-resolution backdrop
 
-`--hires-back` resamples the parallax backdrop to `pixelScale` resolution and
+The backdrop is resampled to `pixelScale` resolution and
 samples it per texture pixel, instead of expanding it into blocks like
 everything else. It is the first layer to get real detail, chosen because
 `LaskeLinjat` never reads it: the backdrop is purely decorative, so smoothing
@@ -742,7 +742,7 @@ Worth knowing before relying on this.
 
 ## 13. High-resolution text
 
-`--hires-text` draws text from `FONTHI.DAT`, a font baked to texture resolution
+Text is drawn from `FONTHI.DAT`, a font baked to texture resolution
 by `tools/makefont.py`, instead of expanding the original glyphs into blocks.
 
 The original font could not simply be sharpened. Its glyphs are six pixels
@@ -771,14 +771,26 @@ The generator needs Pillow, but only when run; the game just loads the result.
 If `FONTHI.DAT` is missing or was built for a different scale, the game says so
 and falls back to drawing text the original way.
 
-### Known regression
+### The queue has to outlive the frame
 
-**The glyph outline is gone.** The original font is two-tone - a body colour
-plus a black outline in palette index 242 - and that outline is what holds the
-HUD legible against a bright sky. The baked atlas stores a single coverage
-channel and paints it in the body colour only, so the outline is lost. It costs
-real legibility over busy backgrounds and should be fixed: the generator can
-emit a dilated outline channel, and the runtime can draw outline before body.
+Text is queued rather than drawn, and the obvious implementation - clear the
+queue once it has been rendered - is wrong. `givech` spins on `DrawScreen` to
+blink its cursor without rewriting anything, so every frame after the first
+came out with no text at all; the main menu rendered completely blank. It was
+invisible in practice mode only because the jump loop happens to rewrite its
+text every frame.
+
+So the queue is cleared when the frame is genuinely rebuilt, not when it is
+drawn: `Maki.Tulosta` bumps `FrameSerial` for hill frames, and a full-screen
+`Fillbox` or `WriteVideo` clears it for menus. That also lets `givech` append a
+character to text that is already on screen, which is what it expects to do.
+
+### The outline is reproduced
+
+The original font is two-tone: a body colour plus a dark outline in palette
+index 242, which is what keeps the HUD legible over a bright sky. The atlas
+stores both as separate coverage channels - the generator dilates the glyph and
+keeps what falls outside it - and the runtime draws outline first, body over.
 
 ### It is a different typeface
 

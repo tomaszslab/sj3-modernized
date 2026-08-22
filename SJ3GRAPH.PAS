@@ -54,12 +54,16 @@ var Anim : array[0..200] of array of byte;
     which keeps every existing layout lining up. Coverage, not colour: the
     bytes are alpha, and the colour comes from whatever fontcolor last set. }
   HiFont : array[1..MaxGlyph] of array of byte;
+  HiFontEdge : array[1..MaxGlyph] of array of byte;
   HiFontW, HiFontH, HiFontOX, HiFontOY : array[1..MaxGlyph] of integer;
   HiFontLoaded : boolean;
 
   CurFontColour : byte;
   Queued : array[0..MaxQueued-1] of TGlyphDraw;
   NumQueued : integer;
+  QueuedSerial : LongInt;
+
+procedure ClearTextQueue; forward;
 
 function NumofAnims: byte;
 begin
@@ -95,6 +99,8 @@ procedure WriteVideo;
 
 var index : LongInt;
 begin
+  ClearTextQueue;
+
   for index:=0 to length(video) - 1 do
     Video[index] := Graffa[index];
 end;
@@ -357,7 +363,7 @@ begin
   blockread(f, ver, 1, got);
   blockread(f, scale, 1, got);
   blockread(f, count, 1, got);
-  if (ver <> 1) or (scale <> SDLPort.PixelScaleFactor) then
+  if (ver <> 2) or (scale <> SDLPort.PixelScaleFactor) then
     begin close(f); exit; end;
 
   for g := 1 to count do
@@ -372,6 +378,8 @@ begin
       if (bw = 0) or (bh = 0) then continue;
       SetLength(HiFont[g], bw*bh);
       blockread(f, HiFont[g][0], bw*bh, got);
+      SetLength(HiFontEdge[g], bw*bh);
+      blockread(f, HiFontEdge[g][0], bw*bh, got);
     end;
 
   close(f);
@@ -385,12 +393,24 @@ procedure DrawQueuedText;
 
 var i, x, y, g, scale : integer;
 begin
+  { queued against a frame that has since been redrawn }
+  if (Maki.FrameSerial <> QueuedSerial) then ClearTextQueue;
+
   scale := SDLPort.PixelScaleFactor;
 
   for i := 0 to NumQueued-1 do
     begin
       g := Queued[i].glyph;
       if (g < 1) or (g > MaxGlyph) or (Length(HiFont[g]) = 0) then continue;
+
+      { outline first, then the body over it, the way the original two-tone
+        glyphs read against a bright sky }
+      for y := 0 to HiFontH[g]-1 do
+        for x := 0 to HiFontW[g]-1 do
+          SDLPort.PlotHiBlend(Queued[i].x*scale + HiFontOX[g] + x,
+                              Queued[i].y*scale + HiFontOY[g] + y,
+                              OutlineIx,
+                              HiFontEdge[g][y*HiFontW[g] + x]);
 
       for y := 0 to HiFontH[g]-1 do
         for x := 0 to HiFontW[g]-1 do
@@ -399,8 +419,6 @@ begin
                               Queued[i].colour,
                               HiFont[g][y*HiFontW[g] + x]);
     end;
-
-  NumQueued := 0;
 end;
 
 procedure InitHiresText;
@@ -419,8 +437,21 @@ begin
   HiresFontLoaded := HiFontLoaded;
 end;
 
+{ Text is queued rather than drawn, so it has to survive being rendered more
+  than once - givech spins on DrawScreen to blink its cursor without rewriting
+  anything, and then appends a character to what is already there. So the queue
+  is cleared when the frame is genuinely rebuilt, not when it is drawn:
+  Maki.Tulosta bumps a serial for hill frames, and the full-screen paths below
+  clear it for menus. }
+procedure ClearTextQueue;
+begin
+  NumQueued := 0;
+  QueuedSerial := Maki.FrameSerial;
+end;
+
 procedure QueueGlyph(x, y : integer; num : byte);
 begin
+  if (Maki.FrameSerial <> QueuedSerial) then ClearTextQueue;
   if (NumQueued >= MaxQueued) then exit;
   if (num < 1) or (num > MaxGlyph) then exit;
   Queued[NumQueued].x := x - AnimP[num,0];
@@ -628,6 +659,8 @@ procedure Fillbox(x,y,x2,y2:word;col:byte);
 
 var xx,yy : word;
 begin
+  if (x = 0) and (y = 0) and (x2 >= 319) and (y2 >= 199) then ClearTextQueue;
+
   for yy:=y to y2 do
     for xx:=x to x2 do
       video[xx + yy shl 8 + yy shl 6] := col;

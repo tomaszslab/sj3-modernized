@@ -12,7 +12,7 @@ advances change. Run it after changing SCALE or the typeface:
     python3 tools/makefont.py
 """
 import struct, sys
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 SCALE   = 4
 TTF     = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
@@ -81,24 +81,33 @@ def main():
         adv = metrics[idx][0] * SCALE
         box = font.getbbox(ch)
         gw, gh = box[2] - box[0], box[3] - box[1]
-        img = Image.new("L", (max(gw, 1) + 2, max(gh, 1) + 2), 0)
-        ImageDraw.Draw(img).text((1 - box[0], 1 - box[1]), ch, fill=255, font=font)
+        # One pixel of slack on every side so the outline has somewhere to go.
+        pad = 2
+        img = Image.new("L", (max(gw, 1) + pad*2, max(gh, 1) + pad*2), 0)
+        ImageDraw.Draw(img).text((pad - box[0], pad - box[1]), ch, fill=255, font=font)
+        # The original font is two-tone: a body colour plus a dark outline that
+        # is what keeps the HUD readable over a bright sky. Recreate it by
+        # dilating the glyph and keeping only what falls outside it.
+        grown = img.filter(ImageFilter.MaxFilter(3))
+        outline = Image.eval(Image.merge("L", [grown]), lambda v: v)
+        outline = Image.composite(Image.new("L", img.size, 0), grown, img.point(lambda v: 255 if v > 96 else 0))
         # centre horizontally in the advance the original glyph occupied, and
         # sit on a baseline shared by every glyph
         ox = (adv - img.width) // 2
-        oy = (box[1] - ascent) + cell_h
-        glyphs[idx] = (img, ox, oy)
+        oy = (box[1] - pad - ascent) + cell_h
+        glyphs[idx] = (img, outline, ox, oy)
 
     with open(OUT, "wb") as f:
         f.write(b"SJHF")
-        f.write(struct.pack("<BBB", 1, SCALE, max(CHARS)))
+        f.write(struct.pack("<BBB", 2, SCALE, max(CHARS)))
         for idx in range(1, max(CHARS) + 1):
             if idx not in glyphs:
                 f.write(struct.pack("<BBbb", 0, 0, 0, 0)); continue
-            img, ox, oy = glyphs[idx]
+            img, outline, ox, oy = glyphs[idx]
             f.write(struct.pack("<BBbb", img.width, img.height,
                                 max(-128, min(127, ox)), max(-128, min(127, oy))))
-            f.write(img.tobytes())
+            f.write(img.tobytes())          # body coverage
+            f.write(outline.tobytes())      # outline coverage
 
     print(f"{OUT}: {len(glyphs)} glyphs, {size}px {TTF.split('/')[-1]}, "
           f"cell height {cell_h}, {open(OUT,'rb').seek(0,2) or 0}")

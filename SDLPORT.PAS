@@ -104,7 +104,7 @@ procedure GetArguments;
 
 var c : char;
   optionindex : Longint;
-  options : array[1..6] of TOption;
+  options : array[1..9] of TOption;
 
 begin
   with options[1] do
@@ -149,6 +149,27 @@ begin
       flag := nil;
       value := #0;
     end;
+  with options[7] do
+    begin
+      name := '--no-hires';
+      has_arg := 0;
+      flag := nil;
+      value := #0;
+    end;
+  with options[8] do
+    begin
+      name := '--no-hires-text';
+      has_arg := 0;
+      flag := nil;
+      value := #0;
+    end;
+  with options[9] do
+    begin
+      name := '--no-hires-back';
+      has_arg := 0;
+      flag := nil;
+      value := #0;
+    end;
   c := #0;
   optionindex := 0;
   repeat
@@ -179,6 +200,19 @@ begin
              if (options[optionindex].name = '--hires-text') then
                begin
                  hiresText := true;
+               end;
+             if (options[optionindex].name = '--no-hires') then
+               begin
+                 hiresText := false;
+                 hiresBack := false;
+               end;
+             if (options[optionindex].name = '--no-hires-text') then
+               begin
+                 hiresText := false;
+               end;
+             if (options[optionindex].name = '--no-hires-back') then
+               begin
+                 hiresBack := false;
                end;
            end;
       's' : swRendering := true;
@@ -285,8 +319,11 @@ begin
   practiceRun := false;
   timeFrames := false;
   hiresTest := false;
-  hiresBack := false;
-  hiresText := false;
+  { The high-resolution paths are the point of the port now, so they are on
+    unless asked otherwise. --no-hires restores the original rendering, which
+    is also how the pixel-identity regression check is run. }
+  hiresBack := true;
+  hiresText := true;
   hiBackReady := false;
   overlayCallback := nil;
   overlayPixels := nil;

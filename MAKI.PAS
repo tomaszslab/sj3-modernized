@@ -25,6 +25,9 @@ var       LinjanPituus: array[0..YSize-1] of Word;
     Whatever differs from this afterwards is overlay - sprites, snow, text -
     which is how the high-resolution backdrop knows what it may replace. }
   VideoBase: array of byte;
+  { bumped every time Tulosta overwrites the frame, so layers that queue work
+    for later can tell one frame from the next }
+  FrameSerial: LongInt;
 
 procedure Tulosta;
 function  Alusta: Boolean;
@@ -92,6 +95,7 @@ begin
   b := Alue-(X shr 1)-(Y shr 1)*XSize;
   KopioiMaki(a,b);
   Move(Video[0], VideoBase[0], Length(Video));
+  inc(FrameSerial);
 end;
 
 procedure AsetaMoodi(M:Word);
