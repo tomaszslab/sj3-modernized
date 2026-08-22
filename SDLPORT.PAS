@@ -9,6 +9,7 @@ type TCloseCallback = procedure ;
 function GetVersion : string;
 function PracticeMode : boolean;
 procedure ReportFrameTime;
+procedure InvalidateHiresBackdrop;
 
 procedure Init;
 procedure DeinitGraphics;
@@ -26,7 +27,7 @@ procedure Wait(ticks : integer);
 
 implementation
 
-uses sdl2, getopts, math;
+uses sdl2, getopts, math, Maki;
 
 const version: string = 'SP5';
   xRes = 320;
@@ -39,6 +40,11 @@ const version: string = 'SP5';
   pixelScale = 4;
   texW = xRes * pixelScale;
   texH = yRes * pixelScale;
+  { The backdrop as stored in Graffa, and its high-resolution counterpart. }
+  backW = 1024;
+  backH = 400;
+  hiBackW = backW * pixelScale;
+  hiBackH = backH * pixelScale;
   targetFrames = 70;
   aspectRes: real = xRes / yRes;
   msPerTick: real = 1000 / 18.2065; { typical IBM PC PIT system clock tick rate }
@@ -67,6 +73,13 @@ var windowMultiplier: integer;
   practiceRun: boolean;
   timeFrames: boolean;
   hiresTest: boolean;
+  hiresBack: boolean;
+  { The backdrop, resampled once per hill to pixelScale resolution and held as
+    finished colours. It is purely decorative - LaskeLinjat never reads it - so
+    smoothing it cannot affect the hill profile or the physics. }
+  hiBack: array of UInt32;
+  hiBackReady: boolean;
+  hiBackPalette: array[64..214] of TSDL_Color;
   renderTicks, renderCount, renderPeak: UInt64;
   expandTicks: UInt64;
 
@@ -74,7 +87,7 @@ procedure GetArguments;
 
 var c : char;
   optionindex : Longint;
-  options : array[1..4] of TOption;
+  options : array[1..5] of TOption;
 
 begin
   with options[1] do
@@ -105,6 +118,13 @@ begin
       flag := nil;
       value := #0;
     end;
+  with options[5] do
+    begin
+      name := '--hires-back';
+      has_arg := 0;
+      flag := nil;
+      value := #0;
+    end;
   c := #0;
   optionindex := 0;
   repeat
@@ -127,6 +147,10 @@ begin
              if (options[optionindex].name = '--hires-test') then
                begin
                  hiresTest := true;
+               end;
+             if (options[optionindex].name = '--hires-back') then
+               begin
+                 hiresBack := true;
                end;
            end;
       's' : swRendering := true;
@@ -233,6 +257,8 @@ begin
   practiceRun := false;
   timeFrames := false;
   hiresTest := false;
+  hiresBack := false;
+  hiBackReady := false;
   renderTicks := 0;
   renderCount := 0;
   renderPeak := 0;
@@ -337,11 +363,118 @@ begin
     end;
 
   SDL_SetPaletteColors(originalSurface^.format^.palette, @palette, 0, 256);
+
+  { The resampled backdrop holds finished colours, so it has to be rebuilt if
+    the palette range it was built from changes. LoadHill leaves the previous
+    hill's palette in place until the game calls AsetaPaletti, which is after
+    the first frame is drawn, so keying off the hill alone is not enough. }
+  for index := 64 to 214 do
+    if (palette[index].r <> hiBackPalette[index].r) or
+       (palette[index].g <> hiBackPalette[index].g) or
+       (palette[index].b <> hiBackPalette[index].b) then
+      begin
+        hiBackReady := false;
+        Move(palette[64], hiBackPalette[64], 151 * SizeOf(TSDL_Color));
+        break;
+      end;
 end;
 
 procedure SetCloseCallback(callback : TCloseCallback);
 begin
   closeCallback := callback;
+end;
+
+procedure InvalidateHiresBackdrop;
+begin
+  hiBackReady := false;
+end;
+
+{ Resample the backdrop to pixelScale resolution, once per hill.
+
+  The source is 8-bit palette indices, which cannot be interpolated - a value
+  half way between index 40 and index 90 means nothing - so each sample is
+  turned into colour first and the interpolation is done on the colours. The
+  result is therefore stored as finished pixels rather than indices, which is
+  fine because the palette range the backdrop uses (64..214) is only ever
+  modified at hill load, by SavytaPaletti. }
+procedure BuildHiresBackdrop;
+
+var pr, pg, pb : array[0..255] of LongInt;
+    fmt : PSDL_PixelFormat;
+    i, hx, hy, x0, x1, y0, y1, fx, fy : LongInt;
+    base : LongInt;
+    c00, c01, c10, c11, top, bot : LongInt;
+    r, g, b : LongInt;
+    weights : array[0..pixelScale-1] of LongInt;
+begin
+  if (Length(Maki.Graffa) < Maki.Alue + backW * backH) then exit;
+
+  if (Length(hiBack) <> hiBackW * hiBackH) then
+    SetLength(hiBack, hiBackW * hiBackH);
+
+  for i := 0 to 255 do
+    begin
+      pr[i] := palette[i].r;
+      pg[i] := palette[i].g;
+      pb[i] := palette[i].b;
+    end;
+
+  { Sub-pixel offsets, in eighths, of the pixelScale samples that fall inside
+    one source pixel: 5/8, 7/8, 1/8, 3/8 with the source index stepping. }
+  for i := 0 to pixelScale-1 do
+    weights[i] := ((i + pixelScale - 2) mod pixelScale) * 2 + 1;
+
+  fmt := displaySurface^.format;
+  base := Maki.Alue;
+
+  for hy := 0 to hiBackH - 1 do
+    begin
+      y0 := (hy - 2) div pixelScale;
+      if (hy < 2) then y0 := -1;
+      fy := weights[hy mod pixelScale];
+      y1 := y0 + 1;
+      if (y0 < 0) then y0 := 0;
+      if (y1 > backH-1) then y1 := backH-1;
+      if (y0 > backH-1) then y0 := backH-1;
+
+      for hx := 0 to hiBackW - 1 do
+        begin
+          x0 := (hx - 2) div pixelScale;
+          if (hx < 2) then x0 := -1;
+          fx := weights[hx mod pixelScale];
+          x1 := x0 + 1;
+          if (x0 < 0) then x0 := 0;
+          if (x1 > backW-1) then x1 := backW-1;
+          if (x0 > backW-1) then x0 := backW-1;
+
+          c00 := Maki.Graffa[base + y0*backW + x0];
+          c10 := Maki.Graffa[base + y0*backW + x1];
+          c01 := Maki.Graffa[base + y1*backW + x0];
+          c11 := Maki.Graffa[base + y1*backW + x1];
+
+          top := pr[c00]*(8-fx) + pr[c10]*fx;
+          bot := pr[c01]*(8-fx) + pr[c11]*fx;
+          r   := (top*(8-fy) + bot*fy) div 64;
+
+          top := pg[c00]*(8-fx) + pg[c10]*fx;
+          bot := pg[c01]*(8-fx) + pg[c11]*fx;
+          g   := (top*(8-fy) + bot*fy) div 64;
+
+          top := pb[c00]*(8-fx) + pb[c10]*fx;
+          bot := pb[c01]*(8-fx) + pb[c11]*fx;
+          b   := (top*(8-fy) + bot*fy) div 64;
+
+          { Pack using the surface's own channel layout rather than assuming
+            one; the expansion path copies these pixels verbatim, so the two
+            must agree exactly. }
+          hiBack[hy*hiBackW + hx] :=
+            (UInt32(r) shl fmt^.Rshift) or
+            (UInt32(g) shl fmt^.Gshift) or
+            (UInt32(b) shl fmt^.Bshift) or fmt^.Amask;
+        end;
+    end;
+
+  hiBackReady := true;
 end;
 
 { Plot a single texture pixel. Coordinates are texture pixels, not logical
@@ -410,6 +543,66 @@ begin
           PlotHi(pixels, pitch, 284 + x, 84 + i*4 + by, amber);
 end;
 
+{ Expansion with the high-resolution backdrop layered in.
+
+  A logical pixel is replaced by resampled backdrop only where two things
+  hold: the hill does not cover it - LinjanPituus says the row ends before
+  this column - and the game has not drawn over it since Tulosta ran. Anything
+  the game drew, sprites and snow and text, is still expanded into blocks, so
+  it keeps its original look and its original position. }
+procedure ExpandLayered(pixels : Pointer; pitch : LongInt);
+
+var srcRow, dstRow : PPixelRow;
+    srcX, srcY, dstX, dstY, sub, rep : LongInt;
+    colour : UInt32;
+    camX, camY, backOffX, backOffY, bx, by, hiY, li : LongInt;
+begin
+  camX := Maki.X;
+  camY := Maki.Y;
+  backOffX := camX - (camX div 2);
+  backOffY := camY - (camY div 2);
+
+  for dstY := 0 to texH - 1 do
+    begin
+      srcY := dstY div pixelScale;
+      sub := dstY mod pixelScale;
+      srcRow := PPixelRow(PtrUInt(displaySurface^.pixels) +
+                          PtrUInt(srcY * displaySurface^.pitch));
+      dstRow := PPixelRow(PtrUInt(pixels) + PtrUInt(dstY * pitch));
+
+      by := srcY + backOffY;
+      hiY := by * pixelScale + sub;
+
+      dstX := 0;
+      for srcX := 0 to xRes - 1 do
+        begin
+          li := srcY * xRes + srcX;
+          bx := srcX + backOffX;
+
+          if (Maki.Video[li] = Maki.VideoBase[li]) and
+             (srcX + camX >= Maki.LinjanPituus[srcY + camY]) and
+             (hiY >= 0) and (hiY < hiBackH) and
+             (bx >= 0) and (bx < backW) then
+            begin
+              for rep := 0 to pixelScale - 1 do
+                begin
+                  dstRow^[dstX] := hiBack[hiY * hiBackW + bx * pixelScale + rep];
+                  inc(dstX);
+                end;
+            end
+          else
+            begin
+              colour := srcRow^[srcX];
+              for rep := 1 to pixelScale do
+                begin
+                  dstRow^[dstX] := colour;
+                  inc(dstX);
+                end;
+            end;
+        end;
+    end;
+end;
+
 procedure Render(buffer : array of byte);
 
 var pixels : Pointer;
@@ -443,8 +636,13 @@ begin
     wholesale. Source and destination share a pixel format, so no conversion
     happens here. }
   if (timeFrames) then t1 := SDL_GetPerformanceCounter;
+
+  if (hiresBack) and (not hiBackReady) then BuildHiresBackdrop;
+
   SDL_LockTexture(displayTexture, nil, @pixels, @pitch);
 
+  if (hiresBack) and (hiBackReady) then ExpandLayered(pixels, pitch)
+  else
   for srcY := 0 to yRes - 1 do
     begin
       srcRow := PPixelRow(PtrUInt(displaySurface^.pixels) +

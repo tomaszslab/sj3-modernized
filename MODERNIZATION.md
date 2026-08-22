@@ -77,6 +77,7 @@ Notes:
 | `./SJ3 --practice` | skip the menus, jump straight in on the first hill |
 | `./SJ3 --frame-time` | report average and peak Render cost against the frame budget |
 | `./SJ3 --hires-test` | overlay a test card proving the texture is really 1280x800 |
+| `./SJ3 --hires-back` | resample the backdrop to texture resolution (see section 12) |
 | `./build.sh` | clone headers if missing, seed save files from `defaults/`, compile |
 | `./format.sh` | reformat all sources with ptop plus a cleanup pass |
 | `./tools/verify-codegen.sh` | print a hash of the emitted assembly |
@@ -86,7 +87,7 @@ Notes:
 `fpc -Mtp -a` and hashes the 14 emitted `.s` files; any change that is supposed
 to be behaviour-preserving must leave that hash alone. The current value is
 
-    7b8b10203badb8946dc0b3b486378c5a94ade028a39fb926e77b19b8e86fd2b3
+    98d280aa7faf4f73cbfb5402b4375d1449ae730f2899802cbf118d68422c7a65
 
 It held unchanged at `368f333b...` across the dead-code removal and the
 reformatting, proving those passes were pure no-ops. It moved deliberately when
@@ -686,7 +687,58 @@ Each commit builds and runs on its own.
 
 ---
 
-## 12. Open questions for milestone 2
+## 12. The high-resolution backdrop
+
+`--hires-back` resamples the parallax backdrop to `pixelScale` resolution and
+samples it per texture pixel, instead of expanding it into blocks like
+everything else. It is the first layer to get real detail, chosen because
+`LaskeLinjat` never reads it: the backdrop is purely decorative, so smoothing
+it cannot affect the hill profile, the profile checksum, or the physics.
+
+The foreground is a different problem. It is both the art and the collision
+surface, and a naive smooth upscale blurs the snow-against-sky silhouette,
+which is the visual ground line. Doing it properly means smoothing the interior
+while rebuilding the edge from the original transparency mask - scriptable, but
+not done here.
+
+### How overlays survive
+
+`Maki.Tulosta` now copies the freshly composited frame into `VideoBase`.
+Anything that differs from it later is something the game drew - sprites, snow,
+text - and is expanded into blocks as before. Only untouched backdrop pixels
+are replaced by resampled ones. No game code changed.
+
+### Limitations
+
+Worth knowing before relying on this.
+
+- **Memory.** The resampled backdrop is 4096x1600 in finished colours, about
+  25 MB, rebuilt whenever the hill changes.
+- **Cost is unmeasured.** The layered path cannot use the row-copy shortcut the
+  plain expansion relies on, because pixels differ within a 4x4 block, so it is
+  certainly slower. How much slower has not been measured - run
+  `--hires-back --frame-time` and compare against `--frame-time` alone.
+- **Layering.** `SDLPort` now `uses Maki` so it can read the camera, the row
+  extents and the frame snapshot. That is the platform layer reaching into game
+  state, and should be tidied if this becomes permanent.
+- **Overlay detection is a heuristic.** A pixel the game draws that happens to
+  equal the backdrop pixel underneath it is not detected. It would be the same
+  colour either way, so it is invisible in practice, but it is a comparison of
+  values rather than a record of what was drawn.
+- **Colours, not indices.** Palette indices cannot be interpolated, so the
+  resampled backdrop holds finished colours. That is safe only because the
+  range it uses, 64..214, is modified just once per hill by `SavytaPaletti`.
+  It is rebuilt whenever those entries change - which is also the fix for a bug
+  found here: `LoadHill` leaves the previous hill's palette in place until the
+  game calls `AsetaPaletti`, which happens after the first frame is drawn, so
+  keying the rebuild off the hill alone resampled through the wrong palette.
+  If anything ever animates that range per frame, the backdrop would rebuild
+  every frame and the game would crawl.
+- **Smoothing is a taste decision.** Bilinear resampling softens art that was
+  drawn pixel by pixel. It suits these backdrops, which are painterly already,
+  but it is not automatically the right answer for every asset.
+
+## 13. Open questions for milestone 2
 
 **Where does higher-resolution art live?** The current architecture gives one
 lever: the `Video` buffer's dimensions. Raising them means raising the hill

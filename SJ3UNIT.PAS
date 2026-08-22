@@ -650,6 +650,7 @@ begin
     end;
 
   SavytaPaletti(1,acthill.bkbright);
+  SDLPort.InvalidateHiresBackdrop;
 
   Loadhill := res;
 

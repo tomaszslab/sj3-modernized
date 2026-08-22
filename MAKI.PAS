@@ -21,6 +21,10 @@ var       LinjanPituus: array[0..YSize-1] of Word;
 
   Graffa: array of byte; { osoite mäen grafiikkaan }
   Video: array of byte; { osoite välipuskuriin }
+  { Video as Tulosta left it, before the game drew anything on top of it.
+    Whatever differs from this afterwards is overlay - sprites, snow, text -
+    which is how the high-resolution backdrop knows what it may replace. }
+  VideoBase: array of byte;
 
 procedure Tulosta;
 function  Alusta: Boolean;
@@ -87,6 +91,7 @@ begin
   a := Y*XSize;
   b := Alue-(X shr 1)-(Y shr 1)*XSize;
   KopioiMaki(a,b);
+  Move(Video[0], VideoBase[0], Length(Video));
 end;
 
 procedure AsetaMoodi(M:Word);
@@ -179,6 +184,7 @@ begin
   Alusta := True;
   setLength(Graffa, Alue*2+1024);
   setLength(Video, 64000);
+  setLength(VideoBase, 64000);
   PaivitaKirjoitusSivu :=  KopioiKirjoitusSivu;
   Kirjoita := KirjoitaTavu;
   Lue := LueTavu;
