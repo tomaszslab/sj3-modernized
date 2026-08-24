@@ -102,7 +102,11 @@ procedure GetArguments;
 
 var c : char;
   optionindex : Longint;
-  options : array[1..13] of TOption;
+  { One more than there are options: getopts walks this array until it finds
+    an entry with an empty name, so it must be terminated. Without that it
+    reads past the end into whatever follows, which happened to be harmless
+    on Linux and faulted on Windows. }
+  options : array[1..14] of TOption;
 
 begin
   with options[1] do
@@ -192,6 +196,13 @@ begin
   with options[13] do
     begin
       name := '--physics-test';
+      has_arg := 0;
+      flag := nil;
+      value := #0;
+    end;
+  with options[14] do          { terminator - see the declaration }
+    begin
+      name := '';
       has_arg := 0;
       flag := nil;
       value := #0;
